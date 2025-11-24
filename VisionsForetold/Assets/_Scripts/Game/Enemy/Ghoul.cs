@@ -25,7 +25,24 @@ namespace _Scripts.Game.Enemy
             base.Awake();
             ConfigureGhoulType();
         }
+        
+        protected override void Update()
+        {
+            if (player == null)
+            {
+                Debug.LogError($"Ghoul: player is null");
+            }
 
+            if (health.isDead)
+            {
+                Debug.Log($"Ghoul is dead, not moving");
+                return;
+            }
+            
+            float distanceToPlayer=Vector3.Distance(transform.position, player.position);
+            Debug.Log($"Distance to player: {distanceToPlayer} || Detection range: {detectionRange}");
+        }
+        
         private void ConfigureGhoulType()
         {
             switch (ghoulType)
