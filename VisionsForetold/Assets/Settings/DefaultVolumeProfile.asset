@@ -465,6 +465,7 @@ MonoBehaviour:
   - {fileID: -6288072647309666549}
   - {fileID: 7518938298396184218}
   - {fileID: -1410297666881709256}
+  - {fileID: 7648051397093283466}
 --- !u!114 &853819529557874667
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -922,6 +923,40 @@ MonoBehaviour:
   scale:
     m_OverrideState: 1
     m_Value: 1
+--- !u!114 &7648051397093283466
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f9317b48b55faf408bb449a3a71a764, type: 3}
+  m_Name: EcholocationVolume
+  m_EditorClassIdentifier: Assembly-CSharp::EcholocationVolume
+  active: 1
+  enabled:
+    m_OverrideState: 1
+    m_Value: 1
+  echoRadius:
+    m_OverrideState: 1
+    m_Value: 10
+  blackoutColor:
+    m_OverrideState: 1
+    m_Value: {r: 0, g: 0, b: 0, a: 1}
+  echoColor:
+    m_OverrideState: 1
+    m_Value: {r: 0, g: 1, b: 1, a: 1}
+  revealedColor:
+    m_OverrideState: 1
+    m_Value: {r: 0.1, g: 0.1, b: 0.15, a: 1}
+  revealIntensity:
+    m_OverrideState: 1
+    m_Value: 0.3
+  testMode:
+    m_OverrideState: 1
+    m_Value: 0
 --- !u!114 &9001657382290151224
 MonoBehaviour:
   m_ObjectHideFlags: 3
