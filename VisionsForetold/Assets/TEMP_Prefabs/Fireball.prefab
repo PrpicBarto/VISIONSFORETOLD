@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 7451411023633743130}
   - component: {fileID: 1424090778374575251}
   - component: {fileID: -1177910267163841590}
-  - component: {fileID: 8329660713693430820}
+  - component: {fileID: 5120437660005924125}
   m_Layer: 0
   m_Name: Fireball
   m_TagString: Projectile
@@ -140,7 +140,7 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 112
   m_CollisionDetection: 0
---- !u!114 &8329660713693430820
+--- !u!114 &5120437660005924125
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -149,14 +149,14 @@ MonoBehaviour:
   m_GameObject: {fileID: 1869192030004015924}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 39a75c04d7a1edd4890c0bcc7daf7474, type: 3}
+  m_Script: {fileID: 11500000, guid: b87af4b2711a8cb4ca9177bb2b414af5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ProjectileDamage
   projectileType: 1
   damageMode: 1
-  baseDamage: 10
-  damageFalloffDistance: 0
-  minDamageMultiplier: 0.5
+  baseDamage: 25
+  damageFalloffDistance: 0.5
+  minDamageMultiplier: 1.5
   aoeRadius: 3
   showAoeGizmo: 1
   damageLayerMask:
