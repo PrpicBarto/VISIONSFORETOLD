@@ -2,26 +2,40 @@ Shader "Custom/URP/Echolocation"
 {
     Properties
     {
-        _PulseOrigin ("Pulse Origin", Vector) = (0, 0, 0, 0)
-        _PulseDistance ("Pulse Distance", Float) = 0
-        _PulseWidth ("Pulse Width", Float) = 5.0
-        _MaxDistance ("Max Distance", Float) = 40.0
+        [Header(Fog Settings)]
+        _FogColor ("Fog Color", Color) = (0.05, 0.05, 0.08, 1)
+        _FogDensity ("Fog Density", Range(0, 1)) = 0.95
         
-        _RevealColor ("Reveal Color", Color) = (1.0, 1.0, 1.0, 1.0)
-        _DarkColor ("Dark Color", Color) = (0.3, 0.3, 0.35, 1.0)
-        _EdgeGlow ("Edge Glow", Float) = 2.0
+        [Header(Echolocation Pulse)]
+        _PulseCenter ("Pulse Center (World)", Vector) = (0, 0, 0, 0)
+        _PulseRadius ("Pulse Radius", Float) = 0
+        _PulseWidth ("Pulse Width", Float) = 5.0
+        _PulseIntensity ("Pulse Intensity", Range(0, 1)) = 1.0
+        
+        [Header(Revealed Areas)]
+        _RevealRadius ("Permanent Reveal Radius", Float) = 10.0
+        _RevealFade ("Reveal Fade Amount", Range(0, 1)) = 0.0
+        
+        [Header(Edge Glow)]
+        _EdgeColor ("Edge Glow Color", Color) = (0.3, 0.6, 1, 1)
+        _EdgeIntensity ("Edge Glow Intensity", Float) = 3.0
     }
     
     SubShader
     {
-        Tags { "RenderType" = "Opaque" "RenderPipeline" = "UniversalPipeline" }
+        Tags 
+        { 
+            "RenderType" = "Transparent" 
+            "Queue" = "Transparent+100"
+            "RenderPipeline" = "UniversalPipeline" 
+        }
         
         Pass
         {
-            Name "Echolocation"
+            Name "FogOfWar"
             
+            Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
-            ZTest Always
             Cull Off
             
             HLSLPROGRAM
@@ -29,19 +43,6 @@ Shader "Custom/URP/Echolocation"
             #pragma fragment frag
             
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DeclareDepthTexture.hlsl"
-            
-            TEXTURE2D(_MainTex);
-            SAMPLER(sampler_MainTex);
-            
-            // GLOBAL shader properties (set by EcholocationController via Shader.SetGlobalXXX)
-            float3 _PulseOrigin;
-            float _PulseDistance;
-            float _PulseWidth;
-            float _MaxDistance;
-            float4 _RevealColor;
-            float4 _DarkColor;
-            float _EdgeGlow;
             
             struct Attributes
             {
@@ -52,62 +53,112 @@ Shader "Custom/URP/Echolocation"
             struct Varyings
             {
                 float4 positionCS : SV_POSITION;
-                float2 uv : TEXCOORD0;
-                float3 viewVector : TEXCOORD1;
+                float3 positionWS : TEXCOORD0;
+                float2 uv : TEXCOORD1;
             };
+            
+            // Properties
+            CBUFFER_START(UnityPerMaterial)
+                float4 _FogColor;
+                float _FogDensity;
+                
+                float3 _PulseCenter;
+                float _PulseRadius;
+                float _PulseWidth;
+                float _PulseIntensity;
+                
+                float _RevealRadius;
+                float _RevealFade;
+                
+                float4 _EdgeColor;
+                float _EdgeIntensity;
+            CBUFFER_END
             
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                output.uv = input.uv;
                 
-                float3 viewVector = mul(unity_CameraInvProjection, float4(input.uv * 2.0 - 1.0, 0.0, -1.0)).xyz;
-                output.viewVector = mul(unity_CameraToWorld, float4(viewVector, 0.0)).xyz;
+                VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                output.positionCS = vertexInput.positionCS;
+                output.positionWS = vertexInput.positionWS;
+                output.uv = input.uv;
                 
                 return output;
             }
             
             half4 frag(Varyings input) : SV_Target
             {
-                half4 color = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+                // CRITICAL: Calculate distance in XZ plane (top-down/isometric)
+                // Project world position to ground plane at player's height
+                float3 pixelPosOnGround = input.positionWS;
+                pixelPosOnGround.y = _PulseCenter.y;
                 
-                // Reconstruct world position from depth
-                float depth = SampleSceneDepth(input.uv);
-                float linearDepth = LinearEyeDepth(depth, _ZBufferParams);
-                float3 worldPos = _WorldSpaceCameraPos + normalize(input.viewVector) * linearDepth;
+                float3 playerPos = _PulseCenter;
                 
-                // Distance from pulse origin (XZ plane only for isometric view)
-                float3 diff = worldPos - _PulseOrigin;
-                diff.y = 0; // Ignore vertical distance for isometric
-                float dist = length(diff);
+                // Calculate horizontal distance only (XZ plane)
+                float3 toPixel = pixelPosOnGround - playerPos;
+                toPixel.y = 0; // Ignore vertical component
+                float distFromPlayer = length(toPixel);
                 
-                // No pulse active - show fog
-                if (_PulseDistance < 0.01)
+                // Start with full fog (everything hidden)
+                half4 finalColor = _FogColor;
+                half fogAlpha = _FogDensity;
+                
+                // === PERMANENT REVEAL AREA (around player) ===
+                // Small area around player stays visible
+                float permanentReveal = 1.0 - saturate(distFromPlayer / _RevealRadius);
+                permanentReveal = smoothstep(0.0, 1.0, permanentReveal);
+                
+                // Apply reveal fade (fog returns over time)
+                permanentReveal *= (1.0 - _RevealFade);
+                
+                // Reduce fog in permanently revealed area
+                fogAlpha *= (1.0 - permanentReveal * 0.7);
+                
+                // === ACTIVE PULSE WAVE ===
+                half pulseReveal = 0.0;
+                half edgeGlow = 0.0;
+                
+                if (_PulseRadius > 0.1 && _PulseIntensity > 0.01)
                 {
-                    return color * _DarkColor;
+                    // Distance from pulse ring edge
+                    float distFromRing = abs(distFromPlayer - _PulseRadius);
+                    
+                    // Ring mask - bright at edge, fades with width
+                    half ringMask = 1.0 - saturate(distFromRing / _PulseWidth);
+                    ringMask = smoothstep(0.0, 1.0, ringMask);
+                    ringMask = pow(ringMask, 2.0); // Sharper falloff
+                    
+                    // Areas INSIDE pulse are revealed (visible)
+                    if (distFromPlayer < _PulseRadius)
+                    {
+                        pulseReveal = _PulseIntensity;
+                    }
+                    
+                    // Edge glow effect
+                    edgeGlow = ringMask * _EdgeIntensity * _PulseIntensity;
+                    
+                    // Reduce fog where pulse has revealed
+                    fogAlpha *= (1.0 - pulseReveal);
                 }
                 
-                // Calculate reveal: areas within pulse radius are visible
-                half revealed = dist < _PulseDistance ? 1.0 : 0.0;
+                // Clamp fog alpha
+                fogAlpha = max(fogAlpha, 0.0);
                 
-                // Pulse ring glow at the expanding edge
-                half ringDist = abs(dist - _PulseDistance);
-                half ring = 1.0 - saturate(ringDist / _PulseWidth);
-                ring = smoothstep(0.0, 1.0, ring) * smoothstep(0.0, 1.0, ring); // Squared for sharper falloff
+                // Apply edge glow to color
+                if (edgeGlow > 0.01)
+                {
+                    finalColor.rgb = lerp(finalColor.rgb, _EdgeColor.rgb, saturate(edgeGlow));
+                }
                 
-                // Mix colors
-                half4 dark = color * _DarkColor;        // Fog color
-                half4 bright = color * _RevealColor;    // Revealed color
-                half4 glow = _RevealColor * ring * _EdgeGlow; // Pulse ring glow
+                // Set final alpha
+                finalColor.a = saturate(fogAlpha);
                 
-                // Final composition
-                half4 final = lerp(dark, bright, revealed);
-                final.rgb += glow.rgb;
-                
-                return final;
+                return finalColor;
             }
             ENDHLSL
         }
     }
+    
+    FallBack "Hidden/Universal Render Pipeline/FallbackError"
 }

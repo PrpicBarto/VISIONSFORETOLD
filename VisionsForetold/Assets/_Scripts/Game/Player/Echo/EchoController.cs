@@ -3,140 +3,433 @@ using UnityEngine;
 namespace VisionsForetold.Game.Player.Echo
 {
     /// <summary>
-    /// Controls the echolocation pulse system that reveals areas in fog of war
+    /// Echolocation Fog of War System
+    /// Creates a fog overlay that reveals areas through expanding pulse waves.
+    /// Uses a simple transparent plane approach for reliable rendering without complex post-processing.
     /// </summary>
     public class EcholocationController : MonoBehaviour
     {
+        [Header("Setup")]
+        [SerializeField] private bool enableEcholocation = true;
+        [Tooltip("Material using the Custom/URP/Echolocation shader")]
+        [SerializeField] private Material fogMaterial;
+        [SerializeField] private Transform player;
+        
+        [Header("Fog Plane Configuration")]
+        [SerializeField] private Vector3 planeSize = new Vector3(200, 1, 200);
+        [Tooltip("Height offset from player. 0 = ground level, positive = above player")]
+        [SerializeField] private float planeHeightOffset = 0f;
+        
         [Header("Pulse Settings")]
-        [SerializeField] private float pulseSpeed = 15f;
-        [SerializeField] private float maxPulseDistance = 40f;
-        [SerializeField] private float pulseInterval = 3f;
+        [Tooltip("How fast the pulse expands (units per second)")]
+        [SerializeField] private float pulseSpeed = 20f;
+        [Tooltip("Maximum radius the pulse reaches before stopping")]
+        [SerializeField] private float maxPulseRadius = 40f;
+        [Tooltip("Time between automatic pulses")]
+        [SerializeField] private float pulseInterval = 2.5f;
+        [Tooltip("Width of the visible pulse ring")]
+        [SerializeField] private float pulseWidth = 5f;
         [SerializeField] private bool autoPulse = true;
 
-        [Header("Visual Settings")]
-        [SerializeField] private float pulseWidth = 5f;
-        [SerializeField] private Color revealColor = Color.white;
-        [SerializeField] private Color darkColor = new Color(0.5f, 0.5f, 0.55f, 1f); // BRIGHTER - was 0.05!
-        [SerializeField] private float edgeGlow = 2f;
+        [Header("Fog & Reveal Settings")]
+        [Tooltip("Radius around player that stays visible")]
+        [SerializeField] private float permanentRevealRadius = 15f;
+        [Tooltip("How long it takes for fog to return after pulse")]
+        [SerializeField] private float revealDuration = 3f;
+        [Tooltip("Curve controlling how fog fades back in")]
+        [SerializeField] private AnimationCurve revealFadeCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
+        [Tooltip("Color of the fog (dark = more hidden)")]
+        [SerializeField] private Color fogColor = new Color(0.05f, 0.05f, 0.08f, 0.95f);
+        [Tooltip("How opaque the fog is (0 = transparent, 1 = solid)")]
+        [SerializeField, Range(0f, 1f)] private float fogDensity = 0.95f;
 
-        [Header("References")]
-        [SerializeField] private Transform pulseOrigin;
+        [Header("Visual Settings")]
+        [Tooltip("Color of the pulse ring edge glow")]
+        [SerializeField] private Color edgeColor = new Color(0.3f, 0.6f, 1f, 1f);
+        [Tooltip("Intensity of the pulse ring glow effect")]
+        [SerializeField] private float edgeIntensity = 3f;
 
         [Header("Debug")]
-        [SerializeField] private bool showDebugLogs = false;
+        [SerializeField] private bool showDebug = true;
+        [SerializeField] private bool showGizmos = true;
 
-        // Runtime variables
-        private float currentPulseDistance;
+        // Runtime state
+        private GameObject fogPlane;
+        private float currentPulseRadius;
         private float timeSinceLastPulse;
         private bool isPulsing;
-        private Vector3 pulseOriginPosition;
+        private float revealFade = 0f;
+        private float timeSinceReveal;
 
-        // Shader property IDs
-        private static readonly int PulseOriginID = Shader.PropertyToID("_PulseOrigin");
-        private static readonly int PulseDistanceID = Shader.PropertyToID("_PulseDistance");
+        // Shader property IDs (cached for performance)
+        private static readonly int FogColorID = Shader.PropertyToID("_FogColor");
+        private static readonly int FogDensityID = Shader.PropertyToID("_FogDensity");
+        private static readonly int PulseCenterID = Shader.PropertyToID("_PulseCenter");
+        private static readonly int PulseRadiusID = Shader.PropertyToID("_PulseRadius");
         private static readonly int PulseWidthID = Shader.PropertyToID("_PulseWidth");
-        private static readonly int MaxDistanceID = Shader.PropertyToID("_MaxDistance");
-        private static readonly int RevealColorID = Shader.PropertyToID("_RevealColor");
-        private static readonly int DarkColorID = Shader.PropertyToID("_DarkColor");
-        private static readonly int EdgeGlowID = Shader.PropertyToID("_EdgeGlow");
+        private static readonly int PulseIntensityID = Shader.PropertyToID("_PulseIntensity");
+        private static readonly int RevealRadiusID = Shader.PropertyToID("_RevealRadius");
+        private static readonly int RevealFadeID = Shader.PropertyToID("_RevealFade");
+        private static readonly int EdgeColorID = Shader.PropertyToID("_EdgeColor");
+        private static readonly int EdgeIntensityID = Shader.PropertyToID("_EdgeIntensity");
+
+        #region Unity Lifecycle
 
         private void Start()
         {
-            if (pulseOrigin == null)
+            if (!ValidateSetup())
             {
-                pulseOrigin = transform;
+                enabled = false;
+                return;
             }
 
-            if (showDebugLogs)
-            {
-                Debug.Log($"[Echo] Starting with Dark Color: {darkColor} (should be >= 0.3 to be visible)");
-            }
-
-            // Initialize shader properties
+            FindPlayerIfNeeded();
+            CreateFogPlane();
             UpdateShaderProperties();
-
+            
             if (autoPulse)
             {
-                TriggerPulse();
+                InvokeRepeating(nameof(TriggerPulse), 1f, pulseInterval);
             }
+            
+            Debug.Log("[Echolocation] System initialized successfully!");
         }
 
         private void Update()
         {
-            if (autoPulse)
-            {
-                timeSinceLastPulse += Time.deltaTime;
+            if (!enableEcholocation || fogPlane == null) return;
 
-                if (timeSinceLastPulse >= pulseInterval && !isPulsing)
-                {
-                    TriggerPulse();
-                }
-            }
-
-            if (isPulsing)
-            {
-                UpdatePulse();
-            }
-
+            UpdateFogPlanePosition();
+            UpdatePulseAnimation();
+            UpdateRevealFade();
             UpdateShaderProperties();
         }
 
-        /// <summary>
-        /// Manually trigger a pulse
-        /// </summary>
-        public void TriggerPulse()
+        private void OnDestroy()
         {
-            isPulsing = true;
-            currentPulseDistance = 0f;
-            timeSinceLastPulse = 0f;
-            pulseOriginPosition = pulseOrigin.position;
-
-            if (showDebugLogs)
+            if (fogPlane != null)
             {
-                Debug.Log($"[Echo] Pulse triggered at {pulseOriginPosition}");
+                Destroy(fogPlane);
             }
         }
 
-        private void UpdatePulse()
+        #endregion
+
+        #region Setup & Validation
+
+        private bool ValidateSetup()
         {
-            currentPulseDistance += pulseSpeed * Time.deltaTime;
-
-            if (currentPulseDistance >= maxPulseDistance)
+            if (!enableEcholocation)
             {
-                isPulsing = false;
-                currentPulseDistance = 0f;
-
-                if (showDebugLogs)
-                {
-                    Debug.Log("[Echo] Pulse completed");
-                }
+                Debug.LogWarning("[Echolocation] System is disabled.");
+                return false;
             }
+
+            if (fogMaterial == null)
+            {
+                Debug.LogError("[Echolocation] Fog Material is not assigned!");
+                Debug.LogError("[Echolocation] Create a material with shader 'Custom/URP/Echolocation' and assign it in the Inspector.");
+                return false;
+            }
+
+            if (fogMaterial.shader.name != "Custom/URP/Echolocation")
+            {
+                Debug.LogWarning($"[Echolocation] Material is using shader '{fogMaterial.shader.name}' instead of 'Custom/URP/Echolocation'. This may not work correctly.");
+            }
+
+            return true;
+        }
+
+        private void FindPlayerIfNeeded()
+        {
+            if (player != null) return;
+
+            GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+            if (playerObj != null)
+            {
+                player = playerObj.transform;
+                Debug.Log($"[Echolocation] Auto-found player: {player.name}");
+            }
+            else
+            {
+                player = transform;
+                Debug.LogWarning("[Echolocation] No Player tag found. Using this GameObject as center.");
+            }
+        }
+
+        #endregion
+
+        #region Fog Plane Creation
+
+        private void CreateFogPlane()
+        {
+            // Create quad primitive (1x1 by default)
+            fogPlane = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            fogPlane.name = "EcholocationFogPlane";
+            
+            // Remove collider (we don't need physics)
+            Destroy(fogPlane.GetComponent<Collider>());
+            
+            // Configure renderer
+            MeshRenderer renderer = fogPlane.GetComponent<MeshRenderer>();
+            renderer.material = fogMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.sortingOrder = 1000; // Render on top
+            
+            // Position and scale
+            Vector3 startPos = player.position;
+            startPos.y += planeHeightOffset;
+            fogPlane.transform.position = startPos;
+            fogPlane.transform.localScale = new Vector3(planeSize.x * 10, planeSize.z * 10, 1);
+            fogPlane.transform.rotation = Quaternion.Euler(90, 0, 0); // Face down (horizontal)
+            
+            // Set layer to ignore raycasts
+            fogPlane.layer = LayerMask.NameToLayer("Ignore Raycast");
+            
+            if (showDebug)
+            {
+                Debug.Log($"[Echolocation] Fog plane created:");
+                Debug.Log($"  Position: {fogPlane.transform.position}");
+                Debug.Log($"  Scale: {fogPlane.transform.localScale}");
+                Debug.Log($"  Rotation: {fogPlane.transform.rotation.eulerAngles}");
+            }
+        }
+
+        #endregion
+
+        #region Update Methods
+
+        private void UpdateFogPlanePosition()
+        {
+            // Keep fog plane centered on player horizontally, at fixed height offset
+            Vector3 fogPos = player.position;
+            fogPos.y += planeHeightOffset;
+            fogPlane.transform.position = fogPos;
+        }
+
+        private void UpdatePulseAnimation()
+        {
+            if (!isPulsing) return;
+
+            currentPulseRadius += pulseSpeed * Time.deltaTime;
+            
+            if (currentPulseRadius >= maxPulseRadius)
+            {
+                EndPulse();
+            }
+        }
+
+        private void UpdateRevealFade()
+        {
+            if (isPulsing) return;
+
+            // Gradually fade fog back in after pulse
+            timeSinceReveal += Time.deltaTime;
+            float normalizedTime = Mathf.Clamp01(timeSinceReveal / revealDuration);
+            revealFade = revealFadeCurve.Evaluate(normalizedTime);
         }
 
         private void UpdateShaderProperties()
         {
-            Shader.SetGlobalVector(PulseOriginID, pulseOriginPosition);
-            Shader.SetGlobalFloat(PulseDistanceID, currentPulseDistance);
-            Shader.SetGlobalFloat(PulseWidthID, pulseWidth);
-            Shader.SetGlobalFloat(MaxDistanceID, maxPulseDistance);
-            Shader.SetGlobalColor(RevealColorID, revealColor);
-            Shader.SetGlobalColor(DarkColorID, darkColor);
-            Shader.SetGlobalFloat(EdgeGlowID, edgeGlow);
+            if (fogMaterial == null) return;
+
+            // Update all shader properties
+            fogMaterial.SetColor(FogColorID, fogColor);
+            fogMaterial.SetFloat(FogDensityID, fogDensity);
+            fogMaterial.SetVector(PulseCenterID, player.position);
+            fogMaterial.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
+            fogMaterial.SetFloat(PulseWidthID, pulseWidth);
+            fogMaterial.SetFloat(PulseIntensityID, isPulsing ? 1f : 0f);
+            fogMaterial.SetFloat(RevealRadiusID, permanentRevealRadius);
+            fogMaterial.SetFloat(RevealFadeID, revealFade);
+            fogMaterial.SetColor(EdgeColorID, edgeColor);
+            fogMaterial.SetFloat(EdgeIntensityID, edgeIntensity);
+        }
+
+        #endregion
+
+        #region Pulse Control
+
+        /// <summary>
+        /// Manually trigger an echolocation pulse
+        /// </summary>
+        public void TriggerPulse()
+        {
+            if (!enableEcholocation) return;
+
+            isPulsing = true;
+            currentPulseRadius = 0f;
+            timeSinceLastPulse = 0f;
+            timeSinceReveal = 0f;
+            revealFade = 0f;
+
+            if (showDebug)
+            {
+                Debug.Log($"[Echolocation] ?? Pulse triggered at {player.position}");
+            }
+        }
+
+        private void EndPulse()
+        {
+            isPulsing = false;
+            currentPulseRadius = 0f;
+            timeSinceReveal = 0f;
+
+            if (showDebug)
+            {
+                Debug.Log("[Echolocation] Pulse completed");
+            }
+        }
+
+        /// <summary>
+        /// Stop automatic pulsing
+        /// </summary>
+        public void StopAutoPulse()
+        {
+            autoPulse = false;
+            CancelInvoke(nameof(TriggerPulse));
+        }
+
+        /// <summary>
+        /// Start automatic pulsing
+        /// </summary>
+        public void StartAutoPulse()
+        {
+            autoPulse = true;
+            InvokeRepeating(nameof(TriggerPulse), 0f, pulseInterval);
+        }
+
+        #endregion
+
+        #region Public API
+
+        /// <summary>
+        /// Enable or disable the echolocation system
+        /// </summary>
+        public void SetEnabled(bool enabled)
+        {
+            enableEcholocation = enabled;
+            
+            if (fogPlane != null)
+            {
+                fogPlane.SetActive(enabled);
+            }
+
+            if (enabled && autoPulse)
+            {
+                StartAutoPulse();
+            }
+            else
+            {
+                StopAutoPulse();
+            }
+        }
+
+        /// <summary>
+        /// Get whether a pulse is currently active
+        /// </summary>
+        public bool IsPulsing => isPulsing;
+
+        /// <summary>
+        /// Get the current pulse radius
+        /// </summary>
+        public float CurrentPulseRadius => currentPulseRadius;
+
+        /// <summary>
+        /// Get time until next pulse
+        /// </summary>
+        public float TimeUntilNextPulse => pulseInterval - timeSinceLastPulse;
+
+        #endregion
+
+        #region Debug & Gizmos
+
+        private void OnDrawGizmosSelected()
+        {
+            if (!showGizmos || player == null) return;
+
+            // Draw fog plane position (magenta square)
+            Gizmos.color = Color.magenta;
+            Vector3 planePos = player.position;
+            planePos.y += planeHeightOffset;
+            Gizmos.DrawWireCube(planePos, new Vector3(5, 0.1f, 5));
+
+            // Draw permanent reveal radius (green circle)
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(player.position, permanentRevealRadius);
+
+            // Draw max pulse radius (yellow circle)
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawWireSphere(player.position, maxPulseRadius);
+
+            // Draw current pulse (cyan circle)
+            if (Application.isPlaying && isPulsing)
+            {
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawWireSphere(player.position, currentPulseRadius);
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (!showDebug) return;
+
+            GUIStyle style = new GUIStyle(GUI.skin.box)
+            {
+                fontSize = 14,
+                alignment = TextAnchor.UpperLeft
+            };
+            style.normal.textColor = Color.white;
+
+            string status = "=== ECHOLOCATION ===\n";
+            status += $"Enabled: {enableEcholocation}\n";
+            status += $"Auto-Pulse: {autoPulse}\n";
+            status += $"Pulsing: {(isPulsing ? "YES ?" : "NO")}\n";
+            
+            if (isPulsing)
+            {
+                status += $"Radius: {currentPulseRadius:F1}/{maxPulseRadius}\n";
+            }
+            else
+            {
+                status += $"Next Pulse: {TimeUntilNextPulse:F1}s\n";
+            }
+            
+            status += $"Reveal Fade: {revealFade:F2}\n";
+            status += $"Fog Density: {fogDensity:F2}\n";
+            
+            if (fogPlane != null)
+            {
+                status += $"Plane Active: {fogPlane.activeSelf}\n";
+            }
+            else
+            {
+                status += "? Plane: NULL\n";
+            }
+
+            GUI.Box(new Rect(10, 10, 280, 180), status, style);
         }
 
         private void OnValidate()
         {
+            // Clamp values to valid ranges
             pulseSpeed = Mathf.Max(0.1f, pulseSpeed);
-            maxPulseDistance = Mathf.Max(1f, maxPulseDistance);
+            maxPulseRadius = Mathf.Max(1f, maxPulseRadius);
             pulseInterval = Mathf.Max(0.1f, pulseInterval);
             pulseWidth = Mathf.Max(0.1f, pulseWidth);
-            edgeGlow = Mathf.Max(0f, edgeGlow);
-
-            // Warn if fog color is too dark
-            if (darkColor.r < 0.3f || darkColor.g < 0.3f || darkColor.b < 0.3f)
+            permanentRevealRadius = Mathf.Max(0f, permanentRevealRadius);
+            revealDuration = Mathf.Max(0.1f, revealDuration);
+            edgeIntensity = Mathf.Max(0f, edgeIntensity);
+            fogDensity = Mathf.Clamp01(fogDensity);
+            
+            // Warn about very dark fog
+            if (fogColor.r < 0.1f && fogColor.g < 0.1f && fogColor.b < 0.1f)
             {
-                Debug.LogWarning($"[Echo] Dark Color {darkColor} is very dark! World may appear black. Try values >= 0.3");
+                Debug.LogWarning("[Echolocation] Fog color is very dark. Scene may appear mostly black.");
             }
         }
+
+        #endregion
     }
 }

@@ -8,6 +8,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float rotationSpeed = 720f; // Degrees per second
 
+    [Header("Dodge Settings")]
+    [SerializeField] private bool enableDodge = true;
+    [SerializeField] private float dodgeDistance = 5f;
+    [SerializeField] private float dodgeDuration = 0.4f;
+    [SerializeField] private float dodgeCooldown = 1.0f;
+    [SerializeField] private AnimationCurve dodgeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
+    [SerializeField] private bool invulnerableDuringDodge = true;
+
     [Header("Aiming Settings")]
     [SerializeField] private Transform aimTarget;
     [SerializeField] private float mouseSensitivity = 2f;
@@ -23,6 +31,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private Rigidbody playerRigidbody;
     [SerializeField] private CinemachinePositionComposer positionComposer;
     [SerializeField] private Animator animator;
+    [SerializeField] private Health playerHealth;
 
     [Header("Camera Tracking")]
     [SerializeField] private Transform cameraTarget;
@@ -49,52 +58,53 @@ public class PlayerMovement : MonoBehaviour
     private float lastGamepadAimTime;
     private float lastMouseMoveTime;
 
+    // Dodge state
+    private bool isDodging;
+    private float dodgeTimer;
+    private float lastDodgeTime = -Mathf.Infinity;
+    private Vector3 dodgeDirection;
+
     // Animation variables
     private float currentAnimationSpeed;
     private bool wasMovingLastFrame;
 
+    // Animation parameter hashes
+    private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
+    private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int DodgeHash = Animator.StringToHash("Dodge");
+
     // Camera reference
     private Camera mainCamera;
 
-    // Public property to access aim target (for PlayerAttack)
+    // Public properties
     public Transform AimTarget => aimTarget;
+    public bool IsDodging => isDodging;
 
     private void Awake()
     {
-        // Get components
+        InitializeComponents();
+        SetupRigidbody();
+        SetupAnimator();
+        CreateCameraTarget();
+        InitializeAimTarget();
+    }
+
+    private void InitializeComponents()
+    {
         if (playerRigidbody == null)
             playerRigidbody = GetComponent<Rigidbody>();
         if (animator == null)
             animator = GetComponent<Animator>();
+        if (playerHealth == null)
+            playerHealth = GetComponent<Health>();
 
         mainCamera = Camera.main;
-
-        // Setup Rigidbody for better control with animations
-        SetupRigidbody();
-
-        // Setup Animator
-        SetupAnimator();
-
-        // Create camera target if not assigned
-        if (cameraTarget == null)
-        {
-            GameObject target = new GameObject("CameraTarget");
-            cameraTarget = target.transform;
-            cameraTarget.position = transform.position + cameraOffset;
-        }
-
-        // Initialize aim target position
-        if (aimTarget != null)
-        {
-            aimTarget.position = transform.position + transform.forward * mouseSensitivity;
-        }
     }
 
     private void SetupRigidbody()
     {
         if (playerRigidbody == null) return;
 
-        // Enhanced Rigidbody constraints for animation compatibility
         playerRigidbody.constraints = RigidbodyConstraints.FreezeRotationX |
                                      RigidbodyConstraints.FreezeRotationZ;
 
@@ -131,11 +141,37 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
+    private void CreateCameraTarget()
+    {
+        if (cameraTarget == null)
+        {
+            GameObject target = new GameObject("CameraTarget");
+            cameraTarget = target.transform;
+            cameraTarget.position = transform.position + cameraOffset;
+        }
+    }
+
+    private void InitializeAimTarget()
+    {
+        if (aimTarget != null)
+        {
+            aimTarget.position = transform.position + transform.forward * mouseSensitivity;
+        }
+    }
+
     private void FixedUpdate()
     {
-        HandleMovement();
-        HandleAiming();
-        HandleRotation(); // NEW: Separate rotation handling
+        if (isDodging)
+        {
+            HandleDodgeMovement();
+        }
+        else
+        {
+            HandleMovement();
+            HandleAiming();
+            HandleRotation(); // NEW: Separate rotation handling
+        }
+        
         UpdateCameraTarget();
     }
 
@@ -146,6 +182,7 @@ public class PlayerMovement : MonoBehaviour
     }
 
     #region Input Methods
+
     public void OnMove(InputAction.CallbackContext context)
     {
         movementInput = context.ReadValue<Vector2>();
@@ -166,9 +203,26 @@ public class PlayerMovement : MonoBehaviour
     {
         mousePosition = context.ReadValue<Vector2>();
     }
+
+    /// <summary>
+    /// New Input System action for dodge
+    /// Add this to your Input Actions asset:
+    /// - Action Name: "Dodge"
+    /// - Action Type: Button
+    /// - Binding: Space (Keyboard), Button East/B (Gamepad)
+    /// </summary>
+    public void OnDodge(InputAction.CallbackContext context)
+    {
+        if (context.performed && enableDodge && !isDodging)
+        {
+            TryPerformDodge();
+        }
+    }
+
     #endregion
 
     #region Input Detection
+
     private void DetectInputMethod()
     {
         // Check for mouse movement
@@ -199,6 +253,7 @@ public class PlayerMovement : MonoBehaviour
             isUsingGamepadAim = false;
         }
     }
+
     #endregion
 
     #region Movement
@@ -269,6 +324,110 @@ public class PlayerMovement : MonoBehaviour
 
         // Fallback to basic movement
         return new Vector3(input.x, 0, input.y);
+    }
+
+    #endregion
+
+    #region Dodge System
+
+    /// <summary>
+    /// Attempt to perform a dodge
+    /// </summary>
+    private void TryPerformDodge()
+    {
+        // Check cooldown
+        float cooldownRemaining = (lastDodgeTime + dodgeCooldown) - Time.time;
+        if (cooldownRemaining > 0)
+        {
+            return;
+        }
+
+        // Determine dodge direction
+        if (movementInput.magnitude > 0.1f)
+        {
+            // Dodge in the direction we're moving
+            dodgeDirection = GetWorldSpaceMovement(movementInput.normalized);
+        }
+        else
+        {
+            // Dodge forward if not moving
+            dodgeDirection = transform.forward;
+        }
+
+        StartDodge();
+    }
+
+    /// <summary>
+    /// Start the dodge sequence
+    /// </summary>
+    private void StartDodge()
+    {
+        isDodging = true;
+        dodgeTimer = 0f;
+        lastDodgeTime = Time.time;
+
+        // Trigger dodge animation
+        if (animator != null)
+        {
+            animator.SetTrigger(DodgeHash);
+        }
+
+        // Make player invulnerable if enabled
+        if (invulnerableDuringDodge && playerHealth != null)
+        {
+            // You could implement: playerHealth.SetInvulnerable(true);
+        }
+
+        Debug.Log($"[PlayerMovement] Dodge started! Direction: {dodgeDirection}");
+    }
+
+    /// <summary>
+    /// Handle dodge movement during dodge
+    /// </summary>
+    private void HandleDodgeMovement()
+    {
+        dodgeTimer += Time.fixedDeltaTime;
+        float normalizedTime = dodgeTimer / dodgeDuration;
+
+        if (normalizedTime >= 1f)
+        {
+            EndDodge();
+            return;
+        }
+
+        // Use animation curve for dodge movement
+        float curveValue = dodgeCurve.Evaluate(normalizedTime);
+        float dodgeSpeed = (dodgeDistance / dodgeDuration) * curveValue;
+
+        Vector3 dodgeVelocity = dodgeDirection * dodgeSpeed;
+        dodgeVelocity.y = playerRigidbody.linearVelocity.y;
+
+        playerRigidbody.linearVelocity = dodgeVelocity;
+    }
+
+    /// <summary>
+    /// End the dodge sequence
+    /// </summary>
+    private void EndDodge()
+    {
+        isDodging = false;
+        dodgeTimer = 0f;
+
+        // Remove invulnerability
+        if (invulnerableDuringDodge && playerHealth != null)
+        {
+            // You could implement: playerHealth.SetInvulnerable(false);
+        }
+
+        Debug.Log("[PlayerMovement] Dodge ended!");
+    }
+
+    /// <summary>
+    /// Get remaining dodge cooldown time
+    /// </summary>
+    public float GetDodgeCooldownRemaining()
+    {
+        return Mathf.Max(0, (lastDodgeTime + dodgeCooldown) - Time.time);
     }
 
     #endregion
@@ -430,15 +589,15 @@ public class PlayerMovement : MonoBehaviour
         if (animator == null) return;
 
         // Calculate movement speed for animations
-        bool isMoving = movementInput.magnitude > 0.1f;
+        bool isMoving = movementInput.magnitude > 0.1f && !isDodging;
         float targetSpeed = isMoving ? movementInput.magnitude : 0f;
 
         // Smooth the animation speed changes
         currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, targetSpeed, Time.deltaTime / animationSmoothTime);
 
         // Set animation parameters
-        animator.SetBool("IsMoving", isMoving);
-        animator.SetFloat("Speed", currentAnimationSpeed);
+        animator.SetBool(IsMovingHash, isMoving);
+        animator.SetFloat(SpeedHash, currentAnimationSpeed);
 
         // Optional: Set movement direction for blend trees
         /*if (movementInput.magnitude > 0.1f)
@@ -527,6 +686,13 @@ public class PlayerMovement : MonoBehaviour
         // Draw rotation direction
         Gizmos.color = Color.green;
         Gizmos.DrawRay(transform.position, transform.forward * 3f);
+
+        // Draw dodge direction when dodging
+        if (Application.isPlaying && isDodging)
+        {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawRay(transform.position, dodgeDirection * dodgeDistance);
+        }
     }
 
     private void OnValidate()
@@ -536,6 +702,9 @@ public class PlayerMovement : MonoBehaviour
         rotationSpeed = Mathf.Max(1f, rotationSpeed);
         animationSmoothTime = Mathf.Max(0.01f, animationSmoothTime);
         minAimDistance = Mathf.Max(0.01f, minAimDistance);
+        dodgeDistance = Mathf.Max(0.1f, dodgeDistance);
+        dodgeDuration = Mathf.Max(0.1f, dodgeDuration);
+        dodgeCooldown = Mathf.Max(0f, dodgeCooldown);
     }
     #endregion
 }
