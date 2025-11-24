@@ -69,15 +69,20 @@ namespace _Scripts.Game.Enemy
 
         protected override void UpdateBehavior(float distanceToPlayer)
         {
+            Debug.Log($"UpdateBehavior called. Distance: {distanceToPlayer} || Attack range: {attackRange}");
             if (distanceToPlayer > attackRange)
             {
+                Debug.Log($"Chasing player. Setting destination to {player.position}");
                 agent.SetDestination(player.position);
+                Debug.Log($"Agent velocity: {agent.velocity}, Speed: {agent.speed}");
             }
             else
             {
+                Debug.Log($"In attack range, stopping");
                 agent.SetDestination(transform.position);
                 TryAttack();
             }
+            
         }
 
         private void TryAttack()
