@@ -5,6 +5,9 @@ Shader "Custom/URP/Echolocation"
         [Header(Fog Settings)]
         _FogColor ("Fog Color", Color) = (0.05, 0.05, 0.08, 1)
         _FogDensity ("Fog Density", Range(0, 1)) = 0.95
+        _FogDistanceFalloff ("Distance Falloff", Float) = 100.0
+        _FogMinDensity ("Minimum Fog Density (Near)", Range(0, 1)) = 0.3
+        _FogMaxDensity ("Maximum Fog Density (Far)", Range(0, 1)) = 1.0
         
         [Header(Echolocation Pulse)]
         _PulseCenter ("Pulse Center (World)", Vector) = (0, 0, 0, 0)
@@ -16,9 +19,12 @@ Shader "Custom/URP/Echolocation"
         _RevealRadius ("Permanent Reveal Radius", Float) = 10.0
         _RevealFade ("Reveal Fade Amount", Range(0, 1)) = 0.0
         
+        [Header(Object Reveals)]
+        _RevealCount ("Number of Revealed Objects", Int) = 0
+        
         [Header(Edge Glow)]
         _EdgeColor ("Edge Glow Color", Color) = (0.3, 0.6, 1, 1)
-        _EdgeIntensity ("Edge Glow Intensity", Float) = 3.0
+        _EdgeIntensity ("Edge Glow Intensity", Float) = 1.5
     }
     
     SubShader
@@ -61,6 +67,9 @@ Shader "Custom/URP/Echolocation"
             CBUFFER_START(UnityPerMaterial)
                 float4 _FogColor;
                 float _FogDensity;
+                float _FogDistanceFalloff;
+                float _FogMinDensity;
+                float _FogMaxDensity;
                 
                 float3 _PulseCenter;
                 float _PulseRadius;
@@ -72,7 +81,14 @@ Shader "Custom/URP/Echolocation"
                 
                 float4 _EdgeColor;
                 float _EdgeIntensity;
+                
+                int _RevealCount;
             CBUFFER_END
+            
+            // Arrays for revealed objects (defined outside CBUFFER)
+            float4 _RevealPositions[50];
+            float _RevealRadii[50];
+            float _RevealStrengths[50];
             
             Varyings vert(Attributes input)
             {
@@ -103,6 +119,15 @@ Shader "Custom/URP/Echolocation"
                 // Start with full fog (everything hidden)
                 half4 finalColor = _FogColor;
                 half fogAlpha = _FogDensity;
+                
+                // === DISTANCE-BASED FOG DENSITY ===
+                // Fog gets denser with distance from player
+                float distanceRatio = saturate(distFromPlayer / _FogDistanceFalloff);
+                
+                // Quadratic falloff for more dramatic effect
+                // Close to player: _FogMinDensity, Far from player: _FogMaxDensity
+                float distanceDensityMultiplier = _FogMinDensity + (distanceRatio * distanceRatio * (_FogMaxDensity - _FogMinDensity));
+                fogAlpha *= distanceDensityMultiplier;
                 
                 // === PERMANENT REVEAL AREA (around player) ===
                 // Small area around player stays visible
@@ -142,13 +167,42 @@ Shader "Custom/URP/Echolocation"
                     fogAlpha *= (1.0 - pulseReveal);
                 }
                 
+                // === REVEALED OBJECTS ===
+                // Clear fog around objects that have been revealed by pulse
+                float objectReveal = 0.0;
+                
+                for (int i = 0; i < _RevealCount && i < 50; i++)
+                {
+                    float3 objectCenter = _RevealPositions[i].xyz;
+                    float objectRadius = _RevealRadii[i];
+                    float revealStrength = _RevealStrengths[i];
+                    
+                    // Calculate distance to revealed object (XZ plane for 2D, or full 3D)
+                    float3 toObject = input.positionWS - objectCenter;
+                    toObject.y = 0; // Keep 2D for now (can make this configurable)
+                    float distToObject = length(toObject);
+                    
+                    // Reveal area around object with smooth falloff
+                    float reveal = 1.0 - saturate(distToObject / objectRadius);
+                    reveal = smoothstep(0.0, 1.0, reveal);
+                    reveal *= revealStrength; // Apply fade in/out
+                    
+                    // Accumulate reveals (max of all reveals)
+                    objectReveal = max(objectReveal, reveal);
+                }
+                
+                // Apply object reveals to fog
+                fogAlpha *= (1.0 - objectReveal);
+                
                 // Clamp fog alpha
                 fogAlpha = max(fogAlpha, 0.0);
                 
-                // Apply edge glow to color
+                // Apply edge glow to color (additive, respecting fog alpha)
                 if (edgeGlow > 0.01)
                 {
-                    finalColor.rgb = lerp(finalColor.rgb, _EdgeColor.rgb, saturate(edgeGlow));
+                    // Only add glow to areas with fog
+                    half glowStrength = saturate(edgeGlow * 0.5); // Reduced intensity
+                    finalColor.rgb = _FogColor.rgb + (_EdgeColor.rgb * glowStrength * fogAlpha);
                 }
                 
                 // Set final alpha

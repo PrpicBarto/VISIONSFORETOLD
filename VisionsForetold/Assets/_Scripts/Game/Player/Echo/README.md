@@ -11,6 +11,15 @@ This system creates a dark fog overlay that covers the game world. Periodic puls
 ### Core System
 - **`EcholocationController.cs`** - Main controller script that manages the fog plane and pulse system
 - **`Echolocation.shader`** - URP shader that renders the fog and pulse effects
+- **`EchoIntersectionDetector.cs`** - Detects and highlights objects hit by echo pulses
+- **`EchoRevealSystem.cs`** - Makes entire objects visible by clearing fog around them
+
+### Documentation
+- **`README.md`** - This file (main documentation)
+- **`QUICKSTART.md`** - 5-minute setup guide
+- **`INTERSECTION_GUIDE.md`** - Comprehensive guide for intersection detection system
+- **`REVEAL_SYSTEM_GUIDE.md`** - Complete guide for object reveal system
+- **`BRIGHTNESS_GUIDE.md`** - How to adjust fog brightness
 
 ### Alternative (Not Currently Used)
 - **`EcholocationRenderFeature.cs`** - Post-processing render feature (kept for reference)
@@ -32,6 +41,10 @@ This system creates a dark fog overlay that covers the game world. Periodic puls
 - ? **Edge Glow** - Bright ring marks the pulse boundary
 - ? **Auto-pulse** - Configurable automatic pulsing
 - ? **Manual Control** - Can trigger pulses via code
+- ? **Intersection Detection** - Detects objects hit by pulses (NEW!)
+- ? **Object Classification** - Auto-categorizes walls, enemies, items, etc.
+- ? **Smart Highlighting** - Color-coded emission glow for detected objects
+- ? **Event System** - Callbacks for game logic integration
 
 ## Setup Instructions
 
@@ -201,6 +214,100 @@ pulseSpeed = 40f;            // Fast expansion
 pulseInterval = 1f;          // Frequent pulses
 maxPulseRadius = 60f;        // Large coverage
 ```
+
+## Intersection Detection (Advanced)
+
+The system includes **EchoIntersectionDetector** for detecting objects hit by echo pulses.
+
+### Quick Setup
+1. Add `EchoIntersectionDetector` component to same GameObject as `EcholocationController`
+2. Tag objects in your scene (Wall, Enemy, Item, Interactive, Hazard)
+3. Objects hit by pulse will automatically highlight with colored glow!
+
+### Features
+- **Automatic Object Detection** - Raycasts detect objects at pulse edge
+- **Color-Coded Highlighting** - Different colors for different object types:
+  - Gray ? Walls
+  - Red ? Enemies
+  - Yellow ? Items
+  - Green ? Interactive
+  - Orange ? Hazards
+- **Event Callbacks** - Subscribe to `OnObjectDetected` and `OnPulseComplete`
+- **Performance Optimized** - Configurable raycast density and update frequency
+
+### Example: React to Enemy Detection
+```csharp
+using VisionsForetold.Game.Player.Echo;
+
+void Start()
+{
+    var detector = GetComponent<EchoIntersectionDetector>();
+    detector.OnObjectDetected += hit =>
+    {
+        if (hit.objectType == EchoObjectType.Enemy)
+        {
+            Debug.Log($"Enemy detected at {hit.distanceFromPlayer}m!");
+            // Show enemy marker on UI, play warning sound, etc.
+        }
+    };
+}
+```
+
+### Full Documentation
+See **INTERSECTION_GUIDE.md** for complete guide including:
+- Configuration options
+- Event system usage
+- Performance optimization
+- Integration examples
+- Troubleshooting
+
+## Object Reveal System (Advanced)
+
+The system includes **EchoRevealSystem** for making entire objects visible when the pulse hits them.
+
+### How It Works
+Instead of just highlighting objects, this system **clears the fog** around detected objects, making them fully visible as if the echolocation "scanned" them.
+
+### Quick Setup
+1. Add `EchoRevealSystem` component to same GameObject as `EcholocationController`
+2. Objects hit by pulse will have fog cleared around them
+3. Objects stay visible for configurable duration (default 5 seconds)
+4. Fog gradually returns when timer expires
+
+### Features
+- **True Sonar Effect** - Objects become visible through fog
+- **Automatic Sizing** - System calculates reveal radius from object bounds
+- **Fade Animations** - Smooth fade in when revealed, fade out when hiding
+- **Performance Optimized** - Shader-based fog clearing (up to 50 objects simultaneously)
+
+### Example: Sonar Scanner
+```csharp
+using VisionsForetold.Game.Player.Echo;
+
+void Start()
+{
+    var revealer = GetComponent<EchoRevealSystem>();
+    
+    // Check what's currently visible
+    List<GameObject> visible = revealer.GetRevealedObjects();
+    Debug.Log($"{visible.Count} objects visible");
+}
+```
+
+### Combine Both Systems!
+Use **both** `EchoRevealSystem` and `EchoIntersectionDetector` together:
+- Reveal System ? Makes objects **visible** (clears fog)
+- Intersection Detector ? Adds **highlight glow** + **events**
+
+Result: Objects become visible AND glow AND trigger game logic!
+
+### Full Documentation
+See **REVEAL_SYSTEM_GUIDE.md** for complete guide including:
+- Configuration options
+- Shader details
+- Performance tuning
+- Integration examples
+- Troubleshooting
 
 ## Version History
 

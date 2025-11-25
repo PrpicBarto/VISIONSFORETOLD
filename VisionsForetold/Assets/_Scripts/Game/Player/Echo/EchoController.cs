@@ -42,12 +42,20 @@ namespace VisionsForetold.Game.Player.Echo
         [SerializeField] private Color fogColor = new Color(0.05f, 0.05f, 0.08f, 0.95f);
         [Tooltip("How opaque the fog is (0 = transparent, 1 = solid)")]
         [SerializeField, Range(0f, 1f)] private float fogDensity = 0.95f;
+        
+        [Header("Distance-Based Fog Density")]
+        [Tooltip("Distance at which fog reaches maximum density")]
+        [SerializeField] private float fogDistanceFalloff = 100f;
+        [Tooltip("Minimum fog density near player (0-1)")]
+        [SerializeField, Range(0f, 1f)] private float fogMinDensity = 0.3f;
+        [Tooltip("Maximum fog density far from player (0-1)")]
+        [SerializeField, Range(0f, 1f)] private float fogMaxDensity = 1.0f;
 
         [Header("Visual Settings")]
         [Tooltip("Color of the pulse ring edge glow")]
         [SerializeField] private Color edgeColor = new Color(0.3f, 0.6f, 1f, 1f);
         [Tooltip("Intensity of the pulse ring glow effect")]
-        [SerializeField] private float edgeIntensity = 3f;
+        [SerializeField] private float edgeIntensity = 1.5f;
 
         [Header("Debug")]
         [SerializeField] private bool showDebug = true;
@@ -64,6 +72,9 @@ namespace VisionsForetold.Game.Player.Echo
         // Shader property IDs (cached for performance)
         private static readonly int FogColorID = Shader.PropertyToID("_FogColor");
         private static readonly int FogDensityID = Shader.PropertyToID("_FogDensity");
+        private static readonly int FogDistanceFalloffID = Shader.PropertyToID("_FogDistanceFalloff");
+        private static readonly int FogMinDensityID = Shader.PropertyToID("_FogMinDensity");
+        private static readonly int FogMaxDensityID = Shader.PropertyToID("_FogMaxDensity");
         private static readonly int PulseCenterID = Shader.PropertyToID("_PulseCenter");
         private static readonly int PulseRadiusID = Shader.PropertyToID("_PulseRadius");
         private static readonly int PulseWidthID = Shader.PropertyToID("_PulseWidth");
@@ -237,6 +248,9 @@ namespace VisionsForetold.Game.Player.Echo
             // Update all shader properties
             fogMaterial.SetColor(FogColorID, fogColor);
             fogMaterial.SetFloat(FogDensityID, fogDensity);
+            fogMaterial.SetFloat(FogDistanceFalloffID, fogDistanceFalloff);
+            fogMaterial.SetFloat(FogMinDensityID, fogMinDensity);
+            fogMaterial.SetFloat(FogMaxDensityID, fogMaxDensity);
             fogMaterial.SetVector(PulseCenterID, player.position);
             fogMaterial.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
             fogMaterial.SetFloat(PulseWidthID, pulseWidth);
@@ -341,6 +355,14 @@ namespace VisionsForetold.Game.Player.Echo
         /// </summary>
         public float TimeUntilNextPulse => pulseInterval - timeSinceLastPulse;
 
+        /// <summary>
+        /// Get the fog material (for external systems to update shader properties)
+        /// </summary>
+        public Material GetFogMaterial()
+        {
+            return fogMaterial;
+        }
+
         #endregion
 
         #region Debug & Gizmos
@@ -422,6 +444,15 @@ namespace VisionsForetold.Game.Player.Echo
             revealDuration = Mathf.Max(0.1f, revealDuration);
             edgeIntensity = Mathf.Max(0f, edgeIntensity);
             fogDensity = Mathf.Clamp01(fogDensity);
+            fogDistanceFalloff = Mathf.Max(1f, fogDistanceFalloff);
+            fogMinDensity = Mathf.Clamp01(fogMinDensity);
+            fogMaxDensity = Mathf.Clamp01(fogMaxDensity);
+            
+            // Ensure min <= max
+            if (fogMinDensity > fogMaxDensity)
+            {
+                fogMaxDensity = fogMinDensity;
+            }
             
             // Warn about very dark fog
             if (fogColor.r < 0.1f && fogColor.g < 0.1f && fogColor.b < 0.1f)

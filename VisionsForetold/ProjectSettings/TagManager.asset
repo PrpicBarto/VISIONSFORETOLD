@@ -8,6 +8,8 @@ TagManager:
   - EnemyProjectile
   - Projectile
   - Floor
+  - Wall
+  - Hazard
   layers:
   - Default
   - TransparentFX
