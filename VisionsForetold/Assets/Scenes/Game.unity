@@ -136,7 +136,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &20226561
 RectTransform:
   m_ObjectHideFlags: 0
@@ -664,7 +664,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &277871321
 RectTransform:
   m_ObjectHideFlags: 0
@@ -2384,7 +2384,9 @@ GameObject:
   - component: {fileID: 726459505}
   - component: {fileID: 726459504}
   - component: {fileID: 726459506}
+  - component: {fileID: 726459508}
   - component: {fileID: 726459507}
+  - component: {fileID: 726459509}
   m_Layer: 0
   m_Name: EchoManager
   m_TagString: Untagged
@@ -2407,8 +2409,9 @@ MonoBehaviour:
   enableEcholocation: 1
   fogMaterial: {fileID: 2100000, guid: a04dbfadc86c83e45adcd541d216eabf, type: 2}
   player: {fileID: 5342806458869551345}
-  planeSize: {x: 200, y: 10, z: 200}
-  planeHeightOffset: 0
+  planeSize: {x: 200, y: 1, z: 200}
+  planeDistanceFromCamera: 10
+  useCameraBillboard: 0
   pulseSpeed: 15
   maxPulseRadius: 15
   pulseInterval: 3
@@ -2518,7 +2521,51 @@ MonoBehaviour:
   verticalRayCount: 5
   verticalRange: 10
   maxRevealedObjects: 50
-  revealRadius: 0.5
+  revealRadius: 5
+  showDebugLogs: 1
+  showDebugGizmos: 1
+--- !u!114 &726459508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726459503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 461fbc8d655d3ec4fa8c516b27fd2f14, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoPulseMemory
+  memoryDuration: 1.5
+  maxMemoryZones: 10
+  showDebug: 1
+--- !u!114 &726459509
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726459503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9af5311a9b5850447a7cd3de37b5c6fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoEdgeDetection
+  detectionLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  raycastResolution: 64
+  detectionThreshold: 2
+  detect3D: 1
+  verticalRayCount: 5
+  verticalRange: 10
+  edgeMaterial: {fileID: 2100000, guid: 4c64460898f67bd4aa0a8ff98277e45f, type: 2}
+  edgeColor: {r: 0.3, g: 0.8, b: 1, a: 1}
+  edgeThickness: 0.01
+  edgeVisibilityDuration: 2
+  edgeFadeOutDuration: 0.5
+  maxTrackedObjects: 50
+  detectionFrameInterval: 1
   showDebugLogs: 1
   showDebugGizmos: 1
 --- !u!1 &736564447
@@ -2668,7 +2715,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &737550490
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2681,7 +2728,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4decc15efacf4d24c93115a3775b6d27, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.SaveSystem.SaveStation
-  interactionRange: 3
+  interactionRange: 5
   playerTag: Player
   promptUI: {fileID: 793835389}
   saveStationMenu: {fileID: 1787562060}
@@ -3224,7 +3271,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &793835390
 RectTransform:
   m_ObjectHideFlags: 0
@@ -3410,7 +3457,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &842655513
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3715,7 +3762,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &961283127
 RectTransform:
   m_ObjectHideFlags: 0
@@ -4860,7 +4907,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!224 &1476004247
 RectTransform:
   m_ObjectHideFlags: 0
@@ -5631,7 +5678,7 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4294967295
+    rgba: 4281479730
   m_fontColor: {r: 0.19607843, g: 0.19607843, b: 0.19607843, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
@@ -5644,7 +5691,7 @@ MonoBehaviour:
   m_spriteAsset: {fileID: 0}
   m_tintAllSprites: 0
   m_StyleSheet: {fileID: 0}
-  m_TextStyleHashCode: 0
+  m_TextStyleHashCode: -1183493901
   m_overrideHtmlColors: 0
   m_faceColor:
     serializedVersion: 2
@@ -5992,7 +6039,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1787562057
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -14727,10 +14774,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a9d28c697f02d524ab0d5fbf9dca3938, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
-  moveSpeed: 5
+  moveSpeed: 7
   rotationSpeed: 720
   enableDodge: 1
-  dodgeDistance: 3
+  dodgeDistance: 3.5
   dodgeDuration: 0.2
   dodgeCooldown: 1
   dodgeCurve:

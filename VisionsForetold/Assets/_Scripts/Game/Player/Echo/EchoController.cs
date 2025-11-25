@@ -17,8 +17,10 @@ namespace VisionsForetold.Game.Player.Echo
         
         [Header("Fog Plane Configuration")]
         [SerializeField] private Vector3 planeSize = new Vector3(200, 1, 200);
-        [Tooltip("Height offset from player. 0 = ground level, positive = above player")]
-        [SerializeField] private float planeHeightOffset = 0f;
+        [Tooltip("Distance from camera to place fog plane")]
+        [SerializeField] private float planeDistanceFromCamera = 50f;
+        [Tooltip("Use camera-facing billboard mode (recommended for 3D)")]
+        [SerializeField] private bool useCameraBillboard = true;
         
         [Header("Pulse Settings")]
         [Tooltip("How fast the pulse expands (units per second)")]
@@ -33,23 +35,23 @@ namespace VisionsForetold.Game.Player.Echo
 
         [Header("Fog & Reveal Settings")]
         [Tooltip("Radius around player that stays visible")]
-        [SerializeField] private float permanentRevealRadius = 15f;
+        [SerializeField] private float permanentRevealRadius = 0f; // Disabled by default for global fog
         [Tooltip("How long it takes for fog to return after pulse")]
         [SerializeField] private float revealDuration = 3f;
         [Tooltip("Curve controlling how fog fades back in")]
         [SerializeField] private AnimationCurve revealFadeCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
         [Tooltip("Color of the fog (dark = more hidden)")]
-        [SerializeField] private Color fogColor = new Color(0.05f, 0.05f, 0.08f, 0.95f);
+        [SerializeField] private Color fogColor = new Color(0f, 0f, 0f, 1f); // Pure black
         [Tooltip("How opaque the fog is (0 = transparent, 1 = solid)")]
-        [SerializeField, Range(0f, 1f)] private float fogDensity = 0.95f;
+        [SerializeField, Range(0f, 1f)] private float fogDensity = 1.0f; // Fully opaque
         
         [Header("Distance-Based Fog Density")]
         [Tooltip("Distance at which fog reaches maximum density")]
         [SerializeField] private float fogDistanceFalloff = 100f;
         [Tooltip("Minimum fog density near player (0-1)")]
-        [SerializeField, Range(0f, 1f)] private float fogMinDensity = 0.3f;
+        [SerializeField, Range(0f, 1f)] private float fogMinDensity = 0.95f; // Very dense everywhere
         [Tooltip("Maximum fog density far from player (0-1)")]
-        [SerializeField, Range(0f, 1f)] private float fogMaxDensity = 1.0f;
+        [SerializeField, Range(0f, 1f)] private float fogMaxDensity = 1.0f; // Pitch black far away
 
         [Header("Visual Settings")]
         [Tooltip("Color of the pulse ring edge glow")]
@@ -188,12 +190,8 @@ namespace VisionsForetold.Game.Player.Echo
             renderer.receiveShadows = false;
             renderer.sortingOrder = 1000; // Render on top
             
-            // Position and scale
-            Vector3 startPos = player.position;
-            startPos.y += planeHeightOffset;
-            fogPlane.transform.position = startPos;
+            // Position and scale - will be updated in Update()
             fogPlane.transform.localScale = new Vector3(planeSize.x * 10, planeSize.z * 10, 1);
-            fogPlane.transform.rotation = Quaternion.Euler(90, 0, 0); // Face down (horizontal)
             
             // Set layer to ignore raycasts
             fogPlane.layer = LayerMask.NameToLayer("Ignore Raycast");
@@ -201,9 +199,8 @@ namespace VisionsForetold.Game.Player.Echo
             if (showDebug)
             {
                 Debug.Log($"[Echolocation] Fog plane created:");
-                Debug.Log($"  Position: {fogPlane.transform.position}");
                 Debug.Log($"  Scale: {fogPlane.transform.localScale}");
-                Debug.Log($"  Rotation: {fogPlane.transform.rotation.eulerAngles}");
+                Debug.Log($"  Billboard Mode: {useCameraBillboard}");
             }
         }
 
@@ -213,10 +210,27 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void UpdateFogPlanePosition()
         {
-            // Keep fog plane centered on player horizontally, at fixed height offset
-            Vector3 fogPos = player.position;
-            fogPos.y += planeHeightOffset;
-            fogPlane.transform.position = fogPos;
+            if (useCameraBillboard)
+            {
+                // Billboard mode: Always face camera
+                Camera mainCam = Camera.main;
+                if (mainCam == null) return;
+
+                // Position plane in front of camera
+                Vector3 camForward = mainCam.transform.forward;
+                fogPlane.transform.position = mainCam.transform.position + camForward * planeDistanceFromCamera;
+                
+                // Face camera (billboard)
+                fogPlane.transform.rotation = Quaternion.LookRotation(-camForward);
+            }
+            else
+            {
+                // Legacy mode: Horizontal plane following player
+                Vector3 fogPos = player.position;
+                fogPos.y = player.position.y; // Same height as player
+                fogPlane.transform.position = fogPos;
+                fogPlane.transform.rotation = Quaternion.Euler(90, 0, 0); // Face down
+            }
         }
 
         private void UpdatePulseAnimation()
@@ -371,11 +385,19 @@ namespace VisionsForetold.Game.Player.Echo
         {
             if (!showGizmos || player == null) return;
 
-            // Draw fog plane position (magenta square)
-            Gizmos.color = Color.magenta;
-            Vector3 planePos = player.position;
-            planePos.y += planeHeightOffset;
-            Gizmos.DrawWireCube(planePos, new Vector3(5, 0.1f, 5));
+            // Draw fog plane position
+            if (useCameraBillboard && Camera.main != null)
+            {
+                Gizmos.color = Color.magenta;
+                Vector3 planePos = Camera.main.transform.position + Camera.main.transform.forward * planeDistanceFromCamera;
+                Gizmos.DrawWireCube(planePos, new Vector3(10, 10, 0.1f));
+            }
+            else
+            {
+                Gizmos.color = Color.magenta;
+                Vector3 planePos = player.position;
+                Gizmos.DrawWireCube(planePos, new Vector3(5, 0.1f, 5));
+            }
 
             // Draw permanent reveal radius (green circle)
             Gizmos.color = Color.green;
