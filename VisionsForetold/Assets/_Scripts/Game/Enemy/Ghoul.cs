@@ -72,8 +72,18 @@ namespace _Scripts.Game.Enemy
             Debug.Log($"UpdateBehavior called. Distance: {distanceToPlayer} || Attack range: {attackRange}");
             if (distanceToPlayer > attackRange)
             {
+                if (agent != null && agent.isOnNavMesh)
+                {
+                    agent.SetDestination(player.position);
+                    Debug.Log(
+                        $"Agent status: hasPath={agent.hasPath}, pathPending={agent.pathPending}, enabled={agent.enabled}, isOnNavMesh={agent.isOnNavMesh}");
+                }
+                else
+                {
+                    Debug.LogError($"Agent problem: agent={agent}, isOnNavMesh={agent?.isOnNavMesh}");
+                }
                 Debug.Log($"Chasing player. Setting destination to {player.position}");
-                agent.SetDestination(player.position);
+                //agent.SetDestination(player.position);
                 Debug.Log($"Agent velocity: {agent.velocity}, Speed: {agent.speed}");
             }
             else
