@@ -31,6 +31,10 @@ namespace _Scripts.Game.Enemy
             if (firePoint != null) firePoint = transform;
             ConfigureGhostType();
         }
+        protected override void Update()
+        {
+            base.Update();
+        }
 
         private void ConfigureGhostType()
         {

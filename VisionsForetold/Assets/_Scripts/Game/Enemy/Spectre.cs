@@ -25,6 +25,10 @@ namespace _Scripts.Game.Enemy
         if (health != null) health.SetMaxHealth(100, false);
         if (agent != null) agent.speed = moveSpeed;
     }
+    protected override void Update()
+    {
+        base.Update();
+    }
 
     protected override void UpdateBehavior(float distanceToPlayer)
     {

@@ -26,6 +26,10 @@ namespace _Scripts.Game.Enemy
         base.Awake();
         ConfigureRevenantType();
     }
+    protected override void Update()
+    {
+        base.Update();
+    }
 
     private void ConfigureRevenantType()
     {

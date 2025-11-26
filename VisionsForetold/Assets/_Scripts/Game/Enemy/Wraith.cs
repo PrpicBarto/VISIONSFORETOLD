@@ -29,6 +29,10 @@ namespace _Scripts.Game.Enemy
             base.Awake();
             ConfigureWraithType();
         }
+        protected override void Update()
+        {
+            base.Update();
+        }
 
         private void ConfigureWraithType()
         {
@@ -108,6 +112,7 @@ namespace _Scripts.Game.Enemy
             if (magicExplosionPrefab != null)
             {
                 Vector3 targetPos = player.position;
+                targetPos.y += 0.5f;
                 GameObject explosion = Instantiate(magicExplosionPrefab, targetPos, Quaternion.identity);
 
                 // Deal AOE damage

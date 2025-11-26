@@ -28,7 +28,6 @@ namespace _Scripts.Game.Enemy
         
         protected override void Update()
         {
-            // CRITICAL: Call base.Update() to trigger movement logic!
             base.Update();
         }
         
