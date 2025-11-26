@@ -44,6 +44,12 @@ namespace _Scripts.Game.Enemy
 
     protected override void UpdateBehavior(float distanceToPlayer)
     {
+        if (agent == null || !agent.enabled || !agent.isOnNavMesh)
+        {
+            Debug.LogWarning($"{name}: Agent not ready - enabled={agent?.enabled}, isOnNavMesh={agent?.isOnNavMesh}");
+            return;
+        }
+
         // Keep distance from player
         if (distanceToPlayer < 6f)
         {

@@ -42,10 +42,13 @@ public abstract class BaseEnemy : MonoBehaviour
 
     protected virtual void Update()
     {
-        if (!isDead || player == null || health.isDead) return;
-
+        if (isDead || player == null || (health != null && health.isDead))
+        {
+            return;
+        }
+        
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-
+        
         if (distanceToPlayer <= detectionRange)
         {
             UpdateBehavior(distanceToPlayer);

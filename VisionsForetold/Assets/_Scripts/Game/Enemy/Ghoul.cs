@@ -28,19 +28,8 @@ namespace _Scripts.Game.Enemy
         
         protected override void Update()
         {
-            if (player == null)
-            {
-                Debug.LogError($"Ghoul: player is null");
-            }
-
-            if (health.isDead)
-            {
-                Debug.Log($"Ghoul is dead, not moving");
-                return;
-            }
-            
-            float distanceToPlayer=Vector3.Distance(transform.position, player.position);
-            Debug.Log($"Distance to player: {distanceToPlayer} || Detection range: {detectionRange}");
+            // CRITICAL: Call base.Update() to trigger movement logic!
+            base.Update();
         }
         
         private void ConfigureGhoulType()
@@ -69,40 +58,44 @@ namespace _Scripts.Game.Enemy
 
         protected override void UpdateBehavior(float distanceToPlayer)
         {
-            Debug.Log($"UpdateBehavior called. Distance: {distanceToPlayer} || Attack range: {attackRange}");
             if (distanceToPlayer > attackRange)
             {
-                if (agent != null && agent.isOnNavMesh)
+                // Chase the player
+                if (agent != null && agent.enabled && agent.isOnNavMesh)
                 {
                     agent.SetDestination(player.position);
-                    Debug.Log(
-                        $"Agent status: hasPath={agent.hasPath}, pathPending={agent.pathPending}, enabled={agent.enabled}, isOnNavMesh={agent.isOnNavMesh}");
                 }
                 else
                 {
-                    Debug.LogError($"Agent problem: agent={agent}, isOnNavMesh={agent?.isOnNavMesh}");
+                    Debug.LogWarning($"{name}: Agent not ready - enabled={agent?.enabled}, isOnNavMesh={agent?.isOnNavMesh}");
                 }
-                Debug.Log($"Chasing player. Setting destination to {player.position}");
-                //agent.SetDestination(player.position);
-                Debug.Log($"Agent velocity: {agent.velocity}, Speed: {agent.speed}");
             }
             else
             {
-                Debug.Log($"In attack range, stopping");
-                agent.SetDestination(transform.position);
+                // In attack range - stop and attack
+                if (agent != null && agent.enabled && agent.isOnNavMesh)
+                {
+                    agent.SetDestination(transform.position); // Stop moving
+                }
                 TryAttack();
             }
-            
         }
 
         private void TryAttack()
         {
+            // Check attack cooldown
+            if (Time.time < lastAttackTime + attackCooldown)
+            {
+                return; // Still on cooldown
+            }
+            
             LookAtPlayer();
             
             Health playerHealth = player.GetComponent<Health>();
             if (playerHealth != null)
             {
                 playerHealth.TakeDamage(biteDamage);
+                lastAttackTime = Time.time; // Reset cooldown
                 Debug.Log($"Ghoul ({ghoulType}) bit player for {biteDamage} damage!");
             }
         }

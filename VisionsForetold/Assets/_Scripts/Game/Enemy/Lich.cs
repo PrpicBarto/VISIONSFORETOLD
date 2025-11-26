@@ -37,11 +37,19 @@ namespace _Scripts.Game.Enemy
             return;
         }
         
-        // Keep distance away from player
-        if (distanceToPlayer < 8f)
+        if (agent == null || !agent.enabled || !agent.isOnNavMesh)
         {
-            Vector3 retreatDir = (transform.position - player.position).normalized;
-            agent.SetDestination(transform.position + retreatDir * 3f);
+            Debug.LogWarning($"{name}: Agent not ready - enabled={agent?.enabled}, isOnNavMesh={agent?.isOnNavMesh}");
+            // Still allow summons and attacks even if can't move
+        }
+        else
+        {
+            // Keep distance away from player
+            if (distanceToPlayer < 8f)
+            {
+                Vector3 retreatDir = (transform.position - player.position).normalized;
+                agent.SetDestination(transform.position + retreatDir * 3f);
+            }
         }
         
         // Summon minions

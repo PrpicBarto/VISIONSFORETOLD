@@ -35,6 +35,17 @@ namespace _Scripts.Game.Enemy
             return;
         }
         
+        if (agent == null || !agent.enabled || !agent.isOnNavMesh)
+        {
+            Debug.LogWarning($"{name}: Agent not ready - enabled={agent?.enabled}, isOnNavMesh={agent?.isOnNavMesh}");
+            // Still allow shockwave even if can't move
+            if (distanceToPlayer <= 3f)
+            {
+                TryShockwave();
+            }
+            return;
+        }
+        
         // Normal behavior
         if (distanceToPlayer > 3f)
         {

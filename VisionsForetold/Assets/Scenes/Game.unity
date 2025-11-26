@@ -1281,7 +1281,7 @@ GameObject:
   - component: {fileID: 423999411}
   m_Layer: 0
   m_Name: NavMesh
-  m_TagString: Untagged
+  m_TagString: Floor
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -3943,7 +3943,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 967553437}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
   m_Name: 
@@ -7585,6 +7585,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Revenant_Healer
       objectReference: {fileID: 0}
+    - target: {fileID: 1701367097290892000, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 2556493646445686179, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
       propertyPath: player
       value: 
@@ -7729,6 +7733,10 @@ PrefabInstance:
     - target: {fileID: 8194550748536736270, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
       propertyPath: m_Name
       value: Wraith_Ranged
+      objectReference: {fileID: 0}
+    - target: {fileID: 8194550748536736270, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8825381563730268163, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
       propertyPath: player
@@ -14661,6 +14669,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 549079604321672325, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
+      propertyPath: health
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 549079604321672325, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
       propertyPath: player
       value: 
       objectReference: {fileID: 5342806458869551345}
@@ -14712,6 +14724,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Wraith_Agressive
       objectReference: {fileID: 0}
+    - target: {fileID: 8266939595284516124, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -14728,6 +14744,10 @@ PrefabInstance:
     - target: {fileID: 3988809582211035481, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
       propertyPath: m_Name
       value: Spectre
+      objectReference: {fileID: 0}
+    - target: {fileID: 3988809582211035481, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7216136584956488525, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -14813,6 +14833,10 @@ PrefabInstance:
     - target: {fileID: 248226746122486928, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
       propertyPath: m_Name
       value: Revenant_Buffer
+      objectReference: {fileID: 0}
+    - target: {fileID: 248226746122486928, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
+      propertyPath: m_IsActive
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1148131458237943217, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
       propertyPath: player
