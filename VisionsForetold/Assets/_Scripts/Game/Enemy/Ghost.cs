@@ -22,13 +22,14 @@ namespace _Scripts.Game.Enemy
         [SerializeField] private float attackRange = 8f;
         [SerializeField] private float minDistance = 4f;
         [SerializeField] private float attackCooldown = 2f;
-
+        [SerializeField] private float projectileSpeed = 10f;
+        
         private float lastAttackTime;
 
         protected override void Awake()
         {
             base.Awake();
-            if (firePoint != null) firePoint = transform;
+            if (firePoint == null) firePoint = transform;
             ConfigureGhostType();
         }
         protected override void Update()
@@ -100,7 +101,13 @@ namespace _Scripts.Game.Enemy
             Vector3 direction = (player.position - firePoint.position).normalized;
             GameObject projectile = Instantiate(soulBlastPrefab, firePoint.position,
                 Quaternion.LookRotation(direction));
-
+            
+            Rigidbody rb = projectile.GetComponent<Rigidbody>();
+            if (rb != null)
+            {
+                rb.linearVelocity=direction*projectileSpeed;
+            }
+            
             ProjectileDamage projDamage = projectile.GetComponent<ProjectileDamage>();
             if (projDamage != null)
             {
