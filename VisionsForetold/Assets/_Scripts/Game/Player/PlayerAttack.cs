@@ -27,6 +27,17 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private AttackMode currentAttackMode = AttackMode.Melee;
     [SerializeField] private TMP_Text attackModeText;
 
+    [Header("Melee Combo Settings")]
+    [SerializeField] private int comboCount = 3; // Number of hits in combo
+    [SerializeField] private float comboWindow = 1.5f; // Time window to continue combo
+    [SerializeField] private float comboResetDelay = 0.5f; // Delay before combo can restart
+    [SerializeField] private float finalHitDamageMultiplier = 2.5f; // Damage multiplier for final hit
+    [SerializeField] private TMP_Text comboText; // UI text to show combo progress
+
+    private int currentComboStep = 0; // 0 = no combo, 1 = first hit, 2 = second hit, 3 = third hit
+    private float lastComboHitTime = -Mathf.Infinity;
+    private bool comboResetInProgress = false;
+
     [Header("Projectile Settings")]
     [SerializeField] private GameObject arrowProjectilePrefab;
     [SerializeField] private GameObject fireballProjectilePrefab;
@@ -39,6 +50,17 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private bool useAimTarget = true; // Whether to use aim target or player forward
     [SerializeField] private float aimHeightOffset = 1.0f; // Height adjustment for projectile spawn
     [SerializeField] private LayerMask aimingLayerMask = -1; // What layers to consider for aiming
+
+    [Header("Ranged Camera Zoom Settings")]
+    [SerializeField] private bool enableRangedZoom = true; // Enable camera zoom in ranged mode
+    [SerializeField] private float zoomedFOV = 45f; // Field of view when aiming (lower = more zoom)
+    [SerializeField] private float normalFOV = 60f; // Normal field of view
+    [SerializeField] private float zoomSpeed = 8f; // How fast camera zooms in/out
+    [SerializeField] private float zoomSmoothTime = 0.15f; // Smoothing for zoom transition
+
+    private float targetFOV;
+    private float currentFOVVelocity; // For SmoothDamp
+    private bool wasInRangedMode = false;
 
     [Header("Spell Settings")]
     [SerializeField] private SpellType currentSpell = SpellType.Fireball;
@@ -106,6 +128,13 @@ public class PlayerAttack : MonoBehaviour
             spellCastPoint = transform;
         }
 
+        // Initialize camera zoom
+        if (mainCamera != null)
+        {
+            normalFOV = mainCamera.fieldOfView; // Use current FOV as normal
+            targetFOV = normalFOV;
+        }
+
         // Get aim target directly from PlayerMovement
         GetAimTargetFromPlayerMovement();
     }
@@ -155,6 +184,7 @@ public class PlayerAttack : MonoBehaviour
     {
         UpdateAttackModeText();
         UpdateSpellText();
+        UpdateComboText();
     }
 
     #region Input Handlers
@@ -233,6 +263,39 @@ public class PlayerAttack : MonoBehaviour
 
     private void PerformMeleeAttack()
     {
+        // Check if combo window has expired
+        if (Time.time > lastComboHitTime + comboWindow && currentComboStep > 0)
+        {
+            // Combo window expired, reset combo
+            ResetCombo();
+        }
+
+        // Advance combo step
+        currentComboStep++;
+        if (currentComboStep > comboCount)
+        {
+            currentComboStep = 1; // Restart combo
+        }
+
+        lastComboHitTime = Time.time;
+
+        // Calculate damage based on combo step
+        int damage = attackDamage;
+        bool isFinalHit = (currentComboStep == comboCount);
+
+        if (isFinalHit)
+        {
+            damage = Mathf.RoundToInt(attackDamage * finalHitDamageMultiplier);
+            Debug.Log($"FINAL HIT! Combo {currentComboStep}/{comboCount} - Damage: {damage} (x{finalHitDamageMultiplier})");
+        }
+        else
+        {
+            Debug.Log($"Combo {currentComboStep}/{comboCount} - Damage: {damage}");
+        }
+
+        // Update combo UI
+        UpdateComboText();
+
         // Use the same aiming logic for consistency
         Vector3 attackDirection = GetShootDirection();
         Vector3 attackOrigin = transform.position + Vector3.up * 0.5f;
@@ -243,7 +306,13 @@ public class PlayerAttack : MonoBehaviour
             var targetHealth = hit.collider.GetComponent<Health>();
             if (targetHealth != null)
             {
-                targetHealth.TakeDamage(attackDamage);
+                targetHealth.TakeDamage(damage);
+                
+                // Visual feedback for final hit
+                if (isFinalHit)
+                {
+                    Debug.Log($"<color=red>CRITICAL HIT on {hit.collider.name}!</color>");
+                }
             }
             else
             {
@@ -251,11 +320,34 @@ public class PlayerAttack : MonoBehaviour
                 var enemyHealth = hit.collider.GetComponent<Health>();
                 if (enemyHealth != null)
                 {
-                    enemyHealth.TakeDamage(attackDamage);
+                    enemyHealth.TakeDamage(damage);
+                    
+                    if (isFinalHit)
+                    {
+                        Debug.Log($"<color=red>CRITICAL HIT on {hit.collider.name}!</color>");
+                    }
                 }
             }
         }
-        Debug.Log("Player performed a melee attack.");
+        else
+        {
+            Debug.Log("Melee attack missed - no target in range");
+        }
+
+        // Schedule combo reset if this was the final hit
+        if (isFinalHit)
+        {
+            Invoke(nameof(ResetCombo), comboResetDelay);
+            comboResetInProgress = true;
+        }
+    }
+
+    private void ResetCombo()
+    {
+        currentComboStep = 0;
+        comboResetInProgress = false;
+        UpdateComboText();
+        Debug.Log("Combo reset");
     }
 
     private void PerformRangedAttack()
@@ -506,6 +598,9 @@ public class PlayerAttack : MonoBehaviour
         int newIndex = (currentIndex + direction + modeCount) % modeCount;
         currentAttackMode = (AttackMode)modes.GetValue(newIndex);
 
+        // Update camera zoom when entering/leaving ranged mode
+        UpdateCameraZoom();
+
         Debug.Log($"Switched to {currentAttackMode} mode");
     }
 
@@ -518,6 +613,39 @@ public class PlayerAttack : MonoBehaviour
         currentSpell = (SpellType)spells.GetValue(newIndex);
 
         Debug.Log($"Selected spell: {currentSpell}");
+    }
+
+    #endregion
+
+    #region Camera Zoom
+
+    private void UpdateCameraZoom()
+    {
+        if (!enableRangedZoom || mainCamera == null) return;
+
+        // Set target FOV based on current attack mode
+        if (currentAttackMode == AttackMode.Ranged)
+        {
+            targetFOV = zoomedFOV;
+        }
+        else
+        {
+            targetFOV = normalFOV;
+        }
+    }
+
+    private void ApplyCameraZoom()
+    {
+        if (!enableRangedZoom || mainCamera == null) return;
+
+        // Smoothly interpolate to target FOV
+        mainCamera.fieldOfView = Mathf.SmoothDamp(
+            mainCamera.fieldOfView,
+            targetFOV,
+            ref currentFOVVelocity,
+            zoomSmoothTime,
+            zoomSpeed * 100f // Max speed
+        );
     }
 
     #endregion
@@ -545,6 +673,40 @@ public class PlayerAttack : MonoBehaviour
             else
             {
                 currentSpellText.text = "";
+            }
+        }
+    }
+
+    private void UpdateComboText()
+    {
+        if (comboText != null)
+        {
+            if (currentAttackMode == AttackMode.Melee && currentComboStep > 0)
+            {
+                string comboDisplay = "";
+                for (int i = 1; i <= comboCount; i++)
+                {
+                    if (i <= currentComboStep)
+                    {
+                        comboDisplay += i == comboCount ? "? " : "? "; // Star for final hit
+                    }
+                    else
+                    {
+                        comboDisplay += "? ";
+                    }
+                }
+                
+                comboText.text = $"Combo: {comboDisplay}({currentComboStep}/{comboCount})";
+                
+                // Add visual indicator for final hit ready
+                if (currentComboStep == comboCount - 1)
+                {
+                    comboText.text += " <color=yellow>[FINAL HIT READY!]</color>";
+                }
+            }
+            else
+            {
+                comboText.text = "";
             }
         }
     }
@@ -598,6 +760,33 @@ public class PlayerAttack : MonoBehaviour
         if (currentAttackMode == AttackMode.SpellWielding)
         {
             UpdateSpellText();
+        }
+
+        // Update combo text in real-time
+        if (currentAttackMode == AttackMode.Melee)
+        {
+            // Check if combo window expired
+            if (currentComboStep > 0 && Time.time > lastComboHitTime + comboWindow && !comboResetInProgress)
+            {
+                ResetCombo();
+            }
+            
+            UpdateComboText();
+        }
+
+        // Apply camera zoom smoothly
+        ApplyCameraZoom();
+
+        // Detect mode changes to update zoom
+        if (currentAttackMode == AttackMode.Ranged && !wasInRangedMode)
+        {
+            UpdateCameraZoom();
+            wasInRangedMode = true;
+        }
+        else if (currentAttackMode != AttackMode.Ranged && wasInRangedMode)
+        {
+            UpdateCameraZoom();
+            wasInRangedMode = false;
         }
 
         // Try to get aim target if we don't have it
