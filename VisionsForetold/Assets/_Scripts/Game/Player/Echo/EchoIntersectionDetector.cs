@@ -57,7 +57,7 @@ namespace VisionsForetold.Game.Player.Echo
         [SerializeField] private float detectionThreshold = 2f;
         
         [Tooltip("Enable vertical raycasting (for 3D environments)")]
-        [SerializeField] private bool detect3D = false;
+        [SerializeField] private bool detect3D = true; // Changed to true by default
         
         [Tooltip("Number of vertical rays (if 3D detection enabled)")]
         [SerializeField] private int verticalRayCount = 5;
@@ -111,6 +111,8 @@ namespace VisionsForetold.Game.Player.Echo
         private List<EchoHit> currentHits = new List<EchoHit>();
         private Dictionary<GameObject, HighlightData> highlightedObjects = new Dictionary<GameObject, HighlightData>();
         private int frameCounter;
+        private List<GameObject> objectsToRemove = new List<GameObject>(10);
+        private Dictionary<GameObject, Renderer> rendererCache = new Dictionary<GameObject, Renderer>(100);
 
         // Shader property IDs
         private static readonly int EmissionColorID = Shader.PropertyToID("_EmissionColor");
@@ -167,6 +169,8 @@ namespace VisionsForetold.Game.Player.Echo
                 RemoveHighlight(kvp.Key);
             }
             highlightedObjects.Clear();
+            rendererCache.Clear();
+            objectsToRemove.Clear();
         }
 
         #endregion
@@ -179,33 +183,37 @@ namespace VisionsForetold.Game.Player.Echo
         private void PerformIntersectionDetection()
         {
             float pulseRadius = echoController.CurrentPulseRadius;
+            if (pulseRadius < 0.1f) return;
+            
             Vector3 pulseCenter = player.position;
 
-            // Clear previous frame's hits
+            // Clear previous frame's hits (reuse list)
             currentHits.Clear();
 
             // Perform circular raycasts
+            float angleStep = 360f / raycastResolution;
             for (int i = 0; i < raycastResolution; i++)
             {
-                float angle = (i / (float)raycastResolution) * 360f;
+                float angle = i * angleStep;
                 Vector3 direction = Quaternion.Euler(0, angle, 0) * Vector3.forward;
 
                 if (detect3D)
                 {
-                    // 3D detection with vertical rays
                     PerformVerticalRaycast(pulseCenter, direction, pulseRadius);
                 }
                 else
                 {
-                    // 2D detection (horizontal plane only)
                     PerformHorizontalRaycast(pulseCenter, direction, pulseRadius);
                 }
+                
+                // Early exit if max reached
+                if (currentHits.Count >= maxTrackedObjects) break;
             }
 
             // Invoke completion callback
             if (currentHits.Count > 0)
             {
-                OnPulseComplete?.Invoke(new List<EchoHit>(currentHits));
+                OnPulseComplete?.Invoke(currentHits);
             }
         }
 
@@ -214,11 +222,7 @@ namespace VisionsForetold.Game.Player.Echo
         /// </summary>
         private void PerformHorizontalRaycast(Vector3 origin, Vector3 direction, float radius)
         {
-            Vector3 rayOrigin = origin;
-            Vector3 rayEnd = origin + direction * radius;
-
-            // Cast ray
-            if (Physics.Raycast(rayOrigin, direction, out RaycastHit hit, radius, detectionLayers))
+            if (Physics.Raycast(origin, direction, out RaycastHit hit, radius + detectionThreshold, detectionLayers))
             {
                 // Check if hit is near pulse ring edge
                 float distFromRing = Mathf.Abs(hit.distance - radius);
@@ -228,12 +232,6 @@ namespace VisionsForetold.Game.Player.Echo
                     ProcessHit(hit, radius);
                 }
             }
-
-            // Debug visualization
-            if (logDetections)
-            {
-                Debug.DrawRay(rayOrigin, direction * radius, Color.yellow, 0.1f);
-            }
         }
 
         /// <summary>
@@ -242,28 +240,25 @@ namespace VisionsForetold.Game.Player.Echo
         private void PerformVerticalRaycast(Vector3 origin, Vector3 direction, float radius)
         {
             Vector3 targetPoint = origin + direction * radius;
+            float verticalStep = verticalRayHeight / (verticalRayCount - 1);
+            float startHeight = -verticalRayHeight * 0.5f;
 
             for (int v = 0; v < verticalRayCount; v++)
             {
-                float heightOffset = (v / (float)(verticalRayCount - 1)) * verticalRayHeight - (verticalRayHeight * 0.5f);
+                float heightOffset = startHeight + v * verticalStep;
                 Vector3 rayOrigin = origin + Vector3.up * heightOffset;
                 Vector3 rayDirection = (targetPoint - rayOrigin).normalized;
                 float rayDistance = Vector3.Distance(rayOrigin, targetPoint);
 
-                if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, rayDistance, detectionLayers))
+                if (Physics.Raycast(rayOrigin, rayDirection, out RaycastHit hit, rayDistance + detectionThreshold, detectionLayers))
                 {
                     float distFromRing = Mathf.Abs(hit.distance - radius);
                     
                     if (distFromRing <= detectionThreshold)
                     {
                         ProcessHit(hit, radius);
+                        if (currentHits.Count >= maxTrackedObjects) break;
                     }
-                }
-
-                // Debug visualization
-                if (logDetections)
-                {
-                    Debug.DrawRay(rayOrigin, rayDirection * rayDistance, Color.cyan, 0.1f);
                 }
             }
         }
@@ -286,10 +281,15 @@ namespace VisionsForetold.Game.Player.Echo
             // Classify object type
             EchoObjectType objectType = ClassifyObject(hitObject);
 
-            // Get renderer for highlighting
-            Renderer renderer = hit.collider.GetComponent<Renderer>();
-            if (renderer == null)
-                renderer = hitObject.GetComponentInChildren<Renderer>();
+            // Get renderer with caching
+            if (!rendererCache.TryGetValue(hitObject, out Renderer renderer))
+            {
+                renderer = hit.collider.GetComponent<Renderer>();
+                if (renderer == null)
+                    renderer = hitObject.GetComponentInChildren<Renderer>();
+                    
+                rendererCache[hitObject] = renderer;
+            }
 
             // Create hit data
             float distanceFromPlayer = Vector3.Distance(player.position, hit.point);
@@ -432,20 +432,21 @@ namespace VisionsForetold.Game.Player.Echo
         /// </summary>
         private void UpdateHighlights()
         {
-            List<GameObject> toRemove = new List<GameObject>();
+            objectsToRemove.Clear();
+            float currentTime = Time.time;
 
             foreach (var kvp in highlightedObjects)
             {
-                if (Time.time >= kvp.Value.highlightEndTime)
+                if (currentTime >= kvp.Value.highlightEndTime)
                 {
-                    toRemove.Add(kvp.Key);
+                    objectsToRemove.Add(kvp.Key);
                 }
             }
 
             // Remove expired highlights
-            foreach (var obj in toRemove)
+            for (int i = 0; i < objectsToRemove.Count; i++)
             {
-                RemoveHighlight(obj);
+                RemoveHighlight(objectsToRemove[i]);
             }
         }
 

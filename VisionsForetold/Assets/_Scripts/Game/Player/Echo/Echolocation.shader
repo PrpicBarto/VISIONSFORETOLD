@@ -9,6 +9,9 @@ Shader "Custom/URP/Echolocation"
         _FogMinDensity ("Minimum Fog Density (Near)", Range(0, 1)) = 0.95
         _FogMaxDensity ("Maximum Fog Density (Far)", Range(0, 1)) = 1.0
         
+        [Header(Vertical Distance Settings)]
+        _VerticalInfluence ("Vertical Distance Influence", Range(0, 1)) = 0.3
+        
         [Header(Echolocation Pulse)]
         _PulseCenter ("Pulse Center (World)", Vector) = (0, 0, 0, 0)
         _PulseRadius ("Pulse Radius", Float) = 0
@@ -35,8 +38,9 @@ Shader "Custom/URP/Echolocation"
         Tags 
         { 
             "RenderType" = "Transparent" 
-            "Queue" = "Transparent+100"
-            "RenderPipeline" = "UniversalPipeline" 
+            "Queue" = "Transparent+200"
+            "RenderPipeline" = "UniversalPipeline"
+            "IgnoreProjector" = "True"
         }
         
         Pass
@@ -45,6 +49,7 @@ Shader "Custom/URP/Echolocation"
             
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
+            ZTest LEqual
             Cull Off
             
             HLSLPROGRAM
@@ -73,6 +78,8 @@ Shader "Custom/URP/Echolocation"
                 float _FogDistanceFalloff;
                 float _FogMinDensity;
                 float _FogMaxDensity;
+                
+                float _VerticalInfluence;
                 
                 float3 _PulseCenter;
                 float _PulseRadius;
@@ -112,99 +119,63 @@ Shader "Custom/URP/Echolocation"
             
             half4 frag(Varyings input) : SV_Target
             {
-                // CRITICAL: Calculate distance in XZ plane (top-down/isometric)
-                // Project world position to ground plane at player's height
-                float3 pixelPosOnGround = input.positionWS;
-                pixelPosOnGround.y = _PulseCenter.y;
+                // Calculate distance (supports both 2D and 3D modes)
+                float3 toPixel = input.positionWS - _PulseCenter;
                 
-                float3 playerPos = _PulseCenter;
+                // Calculate horizontal distance (XZ plane)
+                float horizontalDist = length(toPixel.xz);
                 
-                // Calculate horizontal distance only (XZ plane)
-                float3 toPixel = pixelPosOnGround - playerPos;
-                toPixel.y = 0; // Ignore vertical component
-                float distFromPlayer = length(toPixel);
+                // Calculate vertical offset (Y axis)
+                float verticalOffset = abs(toPixel.y);
                 
-                // Start with full fog (everything hidden)
-                half4 finalColor = _FogColor;
-                half fogAlpha = _FogDensity;
+                // Combine with configurable vertical influence
+                float distFromPlayer = sqrt(
+                    horizontalDist * horizontalDist + 
+                    (verticalOffset * verticalOffset * _VerticalInfluence)
+                );
                 
-                // === GLOBAL FOG (Always Present) ===
-                // Fog covers everything by default - no distance-based reduction
-                // Distance density still applies but fog is always global
+                // Distance-based fog density
                 float distanceRatio = saturate(distFromPlayer / _FogDistanceFalloff);
-                float distanceDensityMultiplier = _FogMinDensity + (distanceRatio * distanceRatio * (_FogMaxDensity - _FogMinDensity));
-                fogAlpha *= distanceDensityMultiplier;
+                half fogAlpha = _FogDensity * (_FogMinDensity + distanceRatio * distanceRatio * (_FogMaxDensity - _FogMinDensity));
                 
-                // === ACTIVE PULSE WAVE (FULL SPHERE REVEAL) ===
-                // Pulse ONLY reveals while actively expanding
-                // Fog returns immediately after pulse passes (no memory)
-                half pulseReveal = 0.0;
+                // === PERMANENT REVEAL AROUND PLAYER ===
+                // Always keep player visible with smooth falloff
+                if (_RevealRadius > 0.1)
+                {
+                    float revealDist = saturate(distFromPlayer / _RevealRadius);
+                    revealDist = smoothstep(0.0, 1.0, revealDist); // Smooth edges
+                    fogAlpha *= revealDist; // Reduce fog near player
+                }
+                
+                // Pulse reveal and edge glow
                 half edgeGlow = 0.0;
                 
-                if (_PulseRadius > 0.1 && _PulseIntensity > 0.01)
+                if (_PulseRadius > 0.1)
                 {
-                    // ENTIRE AREA INSIDE PULSE IS REVEALED (but only while pulsing)
-                    if (distFromPlayer < _PulseRadius)
-                    {
-                        pulseReveal = _PulseIntensity;
-                    }
+                    // Reveal entire area inside pulse (ground level)
+                    half pulseReveal = step(distFromPlayer, _PulseRadius) * _PulseIntensity;
                     
-                    // Distance from pulse ring edge (for glow effect)
+                    // Edge glow at pulse ring
                     float distFromRing = abs(distFromPlayer - _PulseRadius);
-                    
-                    // Ring mask - bright at edge, fades with width
                     half ringMask = 1.0 - saturate(distFromRing / _PulseWidth);
-                    ringMask = smoothstep(0.0, 1.0, ringMask);
-                    ringMask = pow(ringMask, 2.0); // Sharper falloff
-                    
-                    // Edge glow effect (only at the expanding ring edge)
+                    ringMask = ringMask * ringMask; // Squared for sharper falloff
                     edgeGlow = ringMask * _EdgeIntensity * _PulseIntensity;
                     
-                    // Reduce fog where pulse has revealed (ENTIRE SPHERE - TEMPORARY)
                     fogAlpha *= (1.0 - pulseReveal);
                 }
                 
-                // === NO PULSE MEMORY ===
-                // Fog returns to full density immediately after pulse passes
-                // This creates true echolocation where you must constantly scan
-                
-                // === NO OBJECT REVEALS (OPTIONAL) ===
-                // Uncomment below if you want objects to stay visible
-                // Currently disabled for pure global fog behavior
-                
-                /*
-                float objectReveal = 0.0;
-                for (int i = 0; i < _RevealCount && i < 50; i++)
-                {
-                    float3 objectCenter = _RevealPositions[i].xyz;
-                    float objectRadius = _RevealRadii[i];
-                    float revealStrength = _RevealStrengths[i];
-                    
-                    float3 toObject = input.positionWS - objectCenter;
-                    toObject.y = 0;
-                    float distToObject = length(toObject);
-                    
-                    float reveal = 1.0 - saturate(distToObject / objectRadius);
-                    reveal = smoothstep(0.0, 1.0, reveal);
-                    reveal *= revealStrength;
-                    
-                    objectReveal = max(objectReveal, reveal);
-                }
-                fogAlpha *= (1.0 - objectReveal);
-                */
-                
-                // Clamp fog alpha
-                fogAlpha = max(fogAlpha, 0.0);
-                
-                // Apply edge glow to color (additive, respecting fog alpha)
+                // Apply edge glow to color
+                half4 finalColor;
                 if (edgeGlow > 0.01)
                 {
-                    // Only add glow to areas with fog
-                    half glowStrength = saturate(edgeGlow * 0.5); // Reduced intensity
+                    half glowStrength = edgeGlow * 0.5;
                     finalColor.rgb = _FogColor.rgb + (_EdgeColor.rgb * glowStrength * fogAlpha);
                 }
+                else
+                {
+                    finalColor.rgb = _FogColor.rgb;
+                }
                 
-                // Set final alpha
                 finalColor.a = saturate(fogAlpha);
                 
                 return finalColor;

@@ -46,6 +46,8 @@ namespace VisionsForetold.Game.Player.Echo
         private EcholocationController echoController;
         private Transform player;
         private Dictionary<GameObject, RevealData> revealedObjects = new Dictionary<GameObject, RevealData>();
+        private List<GameObject> objectsToRemove = new List<GameObject>(10);
+        private Dictionary<GameObject, Bounds> boundsCache = new Dictionary<GameObject, Bounds>(50);
         
         // Shader data arrays
         private Vector4[] revealPositions;
@@ -107,11 +109,14 @@ namespace VisionsForetold.Game.Player.Echo
         private void DetectObjectsAtPulseEdge()
         {
             float pulseRadius = echoController.CurrentPulseRadius;
+            if (pulseRadius < 0.1f) return;
+            
             Vector3 pulseCenter = player.position;
+            float angleStep = 360f / raycastsPerFrame;
 
             for (int i = 0; i < raycastsPerFrame; i++)
             {
-                float angle = (i / (float)raycastsPerFrame) * 360f;
+                float angle = i * angleStep;
                 Vector3 direction = Quaternion.Euler(0, angle, 0) * Vector3.forward;
 
                 if (detect3D)
@@ -122,6 +127,9 @@ namespace VisionsForetold.Game.Player.Echo
                 {
                     CastHorizontalRay(pulseCenter, direction, pulseRadius);
                 }
+                
+                // Early exit if max revealed
+                if (revealedObjects.Count >= maxRevealedObjects) break;
             }
         }
 
@@ -141,10 +149,12 @@ namespace VisionsForetold.Game.Player.Echo
         private void CastVerticalRays(Vector3 origin, Vector3 direction, float radius)
         {
             Vector3 targetPoint = origin + direction * radius;
+            float verticalStep = verticalRange / (verticalRayCount - 1);
+            float startHeight = -verticalRange * 0.5f;
 
             for (int v = 0; v < verticalRayCount; v++)
             {
-                float heightOffset = (v / (float)(verticalRayCount - 1)) * verticalRange - (verticalRange * 0.5f);
+                float heightOffset = startHeight + v * verticalStep;
                 Vector3 rayOrigin = origin + Vector3.up * heightOffset;
                 Vector3 rayDirection = (targetPoint - rayOrigin).normalized;
                 float rayDistance = Vector3.Distance(rayOrigin, targetPoint);
@@ -156,6 +166,7 @@ namespace VisionsForetold.Game.Player.Echo
                     if (distFromEdge <= detectionThreshold)
                     {
                         RevealObject(hit.collider.gameObject, hit.point);
+                        if (revealedObjects.Count >= maxRevealedObjects) break;
                     }
                 }
             }
@@ -174,22 +185,25 @@ namespace VisionsForetold.Game.Player.Echo
                 return;
             }
 
-            // Get object bounds
-            Renderer renderer = obj.GetComponent<Renderer>();
-            Bounds bounds;
-            
-            if (renderer != null)
+            // Get cached bounds
+            if (!boundsCache.TryGetValue(obj, out Bounds bounds))
             {
-                bounds = renderer.bounds;
-            }
-            else
-            {
-                // Use collider bounds as fallback
-                Collider col = obj.GetComponent<Collider>();
-                bounds = col != null ? col.bounds : new Bounds(obj.transform.position, Vector3.one);
+                Renderer renderer = obj.GetComponent<Renderer>();
+                
+                if (renderer != null)
+                {
+                    bounds = renderer.bounds;
+                }
+                else
+                {
+                    Collider col = obj.GetComponent<Collider>();
+                    bounds = col != null ? col.bounds : new Bounds(obj.transform.position, Vector3.one);
+                }
+                
+                boundsCache[obj] = bounds;
             }
 
-            // Calculate reveal radius (use object size or fixed radius)
+            // Calculate reveal radius
             float objectRadius = Mathf.Max(bounds.extents.magnitude, revealRadius);
 
             // Create reveal data
@@ -213,19 +227,20 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void UpdateRevealedObjects()
         {
-            List<GameObject> toRemove = new List<GameObject>();
+            objectsToRemove.Clear();
             float currentTime = Time.time;
 
             foreach (var kvp in revealedObjects)
             {
                 if (currentTime >= kvp.Value.endTime)
                 {
-                    toRemove.Add(kvp.Key);
+                    objectsToRemove.Add(kvp.Key);
                 }
             }
 
-            foreach (var obj in toRemove)
+            for (int i = 0; i < objectsToRemove.Count; i++)
             {
+                GameObject obj = objectsToRemove[i];
                 if (showDebugLogs)
                 {
                     Debug.Log($"[EchoReveal] Hiding: {obj.name}");
@@ -240,20 +255,22 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void SendDataToShader()
         {
-            if (echoController == null) return;
+            Material fogMaterial = echoController?.GetFogMaterial();
+            if (fogMaterial == null) return;
 
             int count = 0;
+            float currentTime = Time.time;
 
             // Fill arrays with revealed object data
             foreach (var data in revealedObjects.Values)
             {
                 if (count >= maxRevealedObjects) break;
 
-                // Calculate fade based on time
-                float timeAlive = Time.time - data.revealTime;
-                float timeToDeath = data.endTime - Time.time;
-                float fadeIn = Mathf.Clamp01(timeAlive / 0.5f); // Fade in over 0.5s
-                float fadeOut = Mathf.Clamp01(timeToDeath / 1f); // Fade out over 1s
+                // Calculate fade
+                float timeAlive = currentTime - data.revealTime;
+                float timeToDeath = data.endTime - currentTime;
+                float fadeIn = Mathf.Clamp01(timeAlive * 2f); // Fade in over 0.5s (1/0.5 = 2)
+                float fadeOut = Mathf.Clamp01(timeToDeath); // Fade out over 1s
                 float strength = Mathf.Min(fadeIn, fadeOut);
 
                 revealPositions[count] = new Vector4(data.center.x, data.center.y, data.center.z, 1f);
@@ -263,22 +280,17 @@ namespace VisionsForetold.Game.Player.Echo
                 count++;
             }
 
-            // Clear remaining slots
-            for (int i = count; i < maxRevealedObjects; i++)
-            {
-                revealPositions[i] = Vector4.zero;
-                revealRadii[i] = 0f;
-                revealStrengths[i] = 0f;
-            }
-
-            // Send to shader material
-            Material fogMaterial = echoController.GetFogMaterial();
-            if (fogMaterial != null)
+            // Only update shader if count changed or objects are active
+            if (count > 0 || revealedObjects.Count > 0)
             {
                 fogMaterial.SetInt(RevealCountID, count);
-                fogMaterial.SetVectorArray(RevealPositionsID, revealPositions);
-                fogMaterial.SetFloatArray(RevealRadiiID, revealRadii);
-                fogMaterial.SetFloatArray(RevealStrengthsID, revealStrengths);
+                
+                if (count > 0)
+                {
+                    fogMaterial.SetVectorArray(RevealPositionsID, revealPositions);
+                    fogMaterial.SetFloatArray(RevealRadiiID, revealRadii);
+                    fogMaterial.SetFloatArray(RevealStrengthsID, revealStrengths);
+                }
             }
         }
 

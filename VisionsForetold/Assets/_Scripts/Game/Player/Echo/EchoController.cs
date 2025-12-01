@@ -20,7 +20,21 @@ namespace VisionsForetold.Game.Player.Echo
         [Tooltip("Distance from camera to place fog plane")]
         [SerializeField] private float planeDistanceFromCamera = 50f;
         [Tooltip("Use camera-facing billboard mode (recommended for 3D)")]
-        [SerializeField] private bool useCameraBillboard = true;
+        [SerializeField] private bool useCameraBillboard = false;
+        [Tooltip("Ground level Y position (for ground-based echolocation)")]
+        [SerializeField] private float groundLevel = 0f;
+        [Tooltip("Auto-detect ground level from player Y position")]
+        [SerializeField] private bool autoDetectGroundLevel = true;
+        [Tooltip("Height offset above ground level for fog plane")]
+        [SerializeField] private float fogPlaneHeightOffset = 0.1f;
+        
+        [Header("Vertical Fog Coverage")]
+        [Tooltip("Number of stacked fog planes for vertical coverage")]
+        [SerializeField] private int verticalPlaneCount = 5;
+        [Tooltip("Total vertical height to cover with fog")]
+        [SerializeField] private float verticalCoverageHeight = 20f;
+        [Tooltip("Use multiple planes (true) or single billboard (false)")]
+        [SerializeField] private bool useMultiplePlanes = true;
         
         [Header("Pulse Settings")]
         [Tooltip("How fast the pulse expands (units per second)")]
@@ -35,23 +49,27 @@ namespace VisionsForetold.Game.Player.Echo
 
         [Header("Fog & Reveal Settings")]
         [Tooltip("Radius around player that stays visible")]
-        [SerializeField] private float permanentRevealRadius = 0f; // Disabled by default for global fog
+        [SerializeField] private float permanentRevealRadius = 3f; // Increased from 0 to 3 meters
         [Tooltip("How long it takes for fog to return after pulse")]
         [SerializeField] private float revealDuration = 3f;
         [Tooltip("Curve controlling how fog fades back in")]
         [SerializeField] private AnimationCurve revealFadeCurve = AnimationCurve.EaseInOut(0, 1, 1, 0);
         [Tooltip("Color of the fog (dark = more hidden)")]
-        [SerializeField] private Color fogColor = new Color(0f, 0f, 0f, 1f); // Pure black
+        [SerializeField] private Color fogColor = new Color(0f, 0f, 0f, 0.85f); // Changed alpha from 1.0 to 0.85
         [Tooltip("How opaque the fog is (0 = transparent, 1 = solid)")]
-        [SerializeField, Range(0f, 1f)] private float fogDensity = 1.0f; // Fully opaque
+        [SerializeField, Range(0f, 1f)] private float fogDensity = 0.85f; // Changed from 1.0 to 0.85
         
         [Header("Distance-Based Fog Density")]
         [Tooltip("Distance at which fog reaches maximum density")]
         [SerializeField] private float fogDistanceFalloff = 100f;
         [Tooltip("Minimum fog density near player (0-1)")]
-        [SerializeField, Range(0f, 1f)] private float fogMinDensity = 0.95f; // Very dense everywhere
+        [SerializeField, Range(0f, 1f)] private float fogMinDensity = 0.7f; // Changed from 0.95 to 0.7
         [Tooltip("Maximum fog density far from player (0-1)")]
-        [SerializeField, Range(0f, 1f)] private float fogMaxDensity = 1.0f; // Pitch black far away
+        [SerializeField, Range(0f, 1f)] private float fogMaxDensity = 0.95f; // Changed from 1.0 to 0.95
+        
+        [Header("Vertical Distance Settings")]
+        [Tooltip("How much vertical distance affects fog (0=pure 2D/XZ only, 1=full 3D)")]
+        [SerializeField, Range(0f, 1f)] private float verticalInfluence = 0.3f;
 
         [Header("Visual Settings")]
         [Tooltip("Color of the pulse ring edge glow")]
@@ -65,11 +83,14 @@ namespace VisionsForetold.Game.Player.Echo
 
         // Runtime state
         private GameObject fogPlane;
+        private GameObject[] fogPlanes; // Multiple planes for vertical coverage
         private float currentPulseRadius;
         private float timeSinceLastPulse;
         private bool isPulsing;
         private float revealFade = 0f;
         private float timeSinceReveal;
+        private Camera mainCamera;
+        private bool shaderPropertiesDirty = true;
 
         // Shader property IDs (cached for performance)
         private static readonly int FogColorID = Shader.PropertyToID("_FogColor");
@@ -77,6 +98,7 @@ namespace VisionsForetold.Game.Player.Echo
         private static readonly int FogDistanceFalloffID = Shader.PropertyToID("_FogDistanceFalloff");
         private static readonly int FogMinDensityID = Shader.PropertyToID("_FogMinDensity");
         private static readonly int FogMaxDensityID = Shader.PropertyToID("_FogMaxDensity");
+        private static readonly int VerticalInfluenceID = Shader.PropertyToID("_VerticalInfluence");
         private static readonly int PulseCenterID = Shader.PropertyToID("_PulseCenter");
         private static readonly int PulseRadiusID = Shader.PropertyToID("_PulseRadius");
         private static readonly int PulseWidthID = Shader.PropertyToID("_PulseWidth");
@@ -97,6 +119,7 @@ namespace VisionsForetold.Game.Player.Echo
             }
 
             FindPlayerIfNeeded();
+            mainCamera = Camera.main;
             CreateFogPlane();
             UpdateShaderProperties();
             
@@ -112,10 +135,38 @@ namespace VisionsForetold.Game.Player.Echo
         {
             if (!enableEcholocation || fogPlane == null) return;
 
+            // Re-cache camera if it becomes null
+            if (mainCamera == null)
+            {
+                mainCamera = Camera.main;
+                if (mainCamera == null) return;
+            }
+
             UpdateFogPlanePosition();
+            
+            bool wasPulsing = isPulsing;
             UpdatePulseAnimation();
-            UpdateRevealFade();
-            UpdateShaderProperties();
+            
+            if (!isPulsing)
+            {
+                UpdateRevealFade();
+            }
+            
+            // Always update when pulsing for smooth animation
+            // Dirty flag optimization only applies when idle
+            bool needsUpdate = isPulsing || wasPulsing != isPulsing || shaderPropertiesDirty;
+            
+            if (needsUpdate)
+            {
+                UpdateShaderProperties();
+                
+                // Only clear dirty flag if we're not pulsing
+                // Keep updating every frame while pulsing
+                if (!isPulsing)
+                {
+                    shaderPropertiesDirty = false;
+                }
+            }
         }
 
         private void OnDestroy()
@@ -123,6 +174,23 @@ namespace VisionsForetold.Game.Player.Echo
             if (fogPlane != null)
             {
                 Destroy(fogPlane);
+            }
+            
+            if (fogPlanes != null)
+            {
+                foreach (var plane in fogPlanes)
+                {
+                    if (plane != null)
+                    {
+                        // Destroy material instance
+                        MeshRenderer renderer = plane.GetComponent<MeshRenderer>();
+                        if (renderer != null && renderer.material != null)
+                        {
+                            Destroy(renderer.material);
+                        }
+                        Destroy(plane);
+                    }
+                }
             }
         }
 
@@ -176,6 +244,61 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void CreateFogPlane()
         {
+            if (useMultiplePlanes)
+            {
+                CreateMultipleFogPlanes();
+            }
+            else
+            {
+                CreateSingleFogPlane();
+            }
+        }
+
+        private void CreateMultipleFogPlanes()
+        {
+            // Create array to hold all planes
+            fogPlanes = new GameObject[verticalPlaneCount];
+            
+            float heightStep = verticalCoverageHeight / Mathf.Max(1, verticalPlaneCount - 1);
+            
+            for (int i = 0; i < verticalPlaneCount; i++)
+            {
+                // Create quad primitive
+                GameObject plane = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                plane.name = $"EcholocationFogPlane_{i}";
+                
+                // Remove collider
+                Destroy(plane.GetComponent<Collider>());
+                
+                // Configure renderer
+                MeshRenderer renderer = plane.GetComponent<MeshRenderer>();
+                renderer.material = new Material(fogMaterial); // Instance for each plane
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                renderer.sortingOrder = 1000 + i; // Stack properly
+                
+                // Scale plane
+                plane.transform.localScale = new Vector3(planeSize.x * 10, planeSize.z * 10, 1);
+                
+                // Set layer
+                plane.layer = LayerMask.NameToLayer("Ignore Raycast");
+                
+                fogPlanes[i] = plane;
+            }
+            
+            // Keep reference to first plane for compatibility
+            fogPlane = fogPlanes[0];
+            
+            if (showDebug)
+            {
+                Debug.Log($"[Echolocation] Created {verticalPlaneCount} stacked fog planes");
+                Debug.Log($"  Coverage Height: {verticalCoverageHeight}m");
+                Debug.Log($"  Height Step: {heightStep:F2}m");
+            }
+        }
+
+        private void CreateSingleFogPlane()
+        {
             // Create quad primitive (1x1 by default)
             fogPlane = GameObject.CreatePrimitive(PrimitiveType.Quad);
             fogPlane.name = "EcholocationFogPlane";
@@ -210,25 +333,69 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void UpdateFogPlanePosition()
         {
+            // Auto-detect ground level from player if enabled
+            if (autoDetectGroundLevel)
+            {
+                groundLevel = player.position.y;
+            }
+
+            if (useMultiplePlanes && fogPlanes != null)
+            {
+                UpdateMultiplePlanePositions();
+            }
+            else if (fogPlane != null)
+            {
+                UpdateSinglePlanePosition();
+            }
+        }
+
+        private void UpdateMultiplePlanePositions()
+        {
+            float heightStep = verticalCoverageHeight / Mathf.Max(1, verticalPlaneCount - 1);
+            float startHeight = groundLevel + fogPlaneHeightOffset;
+            
+            for (int i = 0; i < fogPlanes.Length; i++)
+            {
+                if (fogPlanes[i] == null) continue;
+                
+                Vector3 planePos = player.position;
+                planePos.y = startHeight + (i * heightStep);
+                
+                fogPlanes[i].transform.position = planePos;
+                fogPlanes[i].transform.rotation = Quaternion.Euler(90, 0, 0); // Face down
+                
+                // Update material on each plane
+                MeshRenderer renderer = fogPlanes[i].GetComponent<MeshRenderer>();
+                if (renderer != null && renderer.material != null)
+                {
+                    UpdateMaterialProperties(renderer.material);
+                }
+            }
+        }
+
+        private void UpdateSinglePlanePosition()
+        {
             if (useCameraBillboard)
             {
-                // Billboard mode: Always face camera
-                Camera mainCam = Camera.main;
-                if (mainCam == null) return;
+                if (mainCamera == null)
+                {
+                    mainCamera = Camera.main;
+                    if (mainCamera == null) return;
+                }
 
                 // Position plane in front of camera
-                Vector3 camForward = mainCam.transform.forward;
-                fogPlane.transform.position = mainCam.transform.position + camForward * planeDistanceFromCamera;
+                Vector3 camForward = mainCamera.transform.forward;
+                fogPlane.transform.position = mainCamera.transform.position + camForward * planeDistanceFromCamera;
                 
                 // Face camera (billboard)
                 fogPlane.transform.rotation = Quaternion.LookRotation(-camForward);
             }
             else
             {
-                // Legacy mode: Horizontal plane following player
-                Vector3 fogPos = player.position;
-                fogPos.y = player.position.y; // Same height as player
-                fogPlane.transform.position = fogPos;
+                // Ground-aligned mode: Horizontal plane at ground level following player XZ position
+                Vector3 planePos = player.position;
+                planePos.y = groundLevel + fogPlaneHeightOffset;
+                fogPlane.transform.position = planePos;
                 fogPlane.transform.rotation = Quaternion.Euler(90, 0, 0); // Face down
             }
         }
@@ -259,20 +426,37 @@ namespace VisionsForetold.Game.Player.Echo
         {
             if (fogMaterial == null) return;
 
-            // Update all shader properties
-            fogMaterial.SetColor(FogColorID, fogColor);
-            fogMaterial.SetFloat(FogDensityID, fogDensity);
-            fogMaterial.SetFloat(FogDistanceFalloffID, fogDistanceFalloff);
-            fogMaterial.SetFloat(FogMinDensityID, fogMinDensity);
-            fogMaterial.SetFloat(FogMaxDensityID, fogMaxDensity);
-            fogMaterial.SetVector(PulseCenterID, player.position);
-            fogMaterial.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
-            fogMaterial.SetFloat(PulseWidthID, pulseWidth);
-            fogMaterial.SetFloat(PulseIntensityID, isPulsing ? 1f : 0f);
-            fogMaterial.SetFloat(RevealRadiusID, permanentRevealRadius);
-            fogMaterial.SetFloat(RevealFadeID, revealFade);
-            fogMaterial.SetColor(EdgeColorID, edgeColor);
-            fogMaterial.SetFloat(EdgeIntensityID, edgeIntensity);
+            // Update main material
+            UpdateMaterialProperties(fogMaterial);
+        }
+
+        private void UpdateMaterialProperties(Material material)
+        {
+            if (material == null) return;
+
+            // Always update dynamic properties
+            // Send ground-level position for proper XZ distance calculations
+            Vector3 pulseCenter = player.position;
+            pulseCenter.y = groundLevel; // Lock to ground level for shader calculations
+            material.SetVector(PulseCenterID, pulseCenter);
+            material.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
+            material.SetFloat(PulseIntensityID, isPulsing ? 1f : 0f);
+            
+            // Only update static properties when dirty
+            if (shaderPropertiesDirty)
+            {
+                material.SetColor(FogColorID, fogColor);
+                material.SetFloat(FogDensityID, fogDensity);
+                material.SetFloat(FogDistanceFalloffID, fogDistanceFalloff);
+                material.SetFloat(FogMinDensityID, fogMinDensity);
+                material.SetFloat(FogMaxDensityID, fogMaxDensity);
+                material.SetFloat(VerticalInfluenceID, verticalInfluence);
+                material.SetFloat(PulseWidthID, pulseWidth);
+                material.SetFloat(RevealRadiusID, permanentRevealRadius);
+                material.SetFloat(RevealFadeID, revealFade);
+                material.SetColor(EdgeColorID, edgeColor);
+                material.SetFloat(EdgeIntensityID, edgeIntensity);
+            }
         }
 
         #endregion
@@ -291,6 +475,7 @@ namespace VisionsForetold.Game.Player.Echo
             timeSinceLastPulse = 0f;
             timeSinceReveal = 0f;
             revealFade = 0f;
+            shaderPropertiesDirty = true;
 
             if (showDebug)
             {
@@ -339,7 +524,17 @@ namespace VisionsForetold.Game.Player.Echo
         {
             enableEcholocation = enabled;
             
-            if (fogPlane != null)
+            if (useMultiplePlanes && fogPlanes != null)
+            {
+                foreach (var plane in fogPlanes)
+                {
+                    if (plane != null)
+                    {
+                        plane.SetActive(enabled);
+                    }
+                }
+            }
+            else if (fogPlane != null)
             {
                 fogPlane.SetActive(enabled);
             }
@@ -385,6 +580,12 @@ namespace VisionsForetold.Game.Player.Echo
         {
             if (!showGizmos || player == null) return;
 
+            // Draw ground level plane (green wireframe)
+            Gizmos.color = Color.green;
+            Vector3 groundPlaneCenter = player.position;
+            groundPlaneCenter.y = autoDetectGroundLevel ? player.position.y : groundLevel;
+            Gizmos.DrawWireCube(groundPlaneCenter, new Vector3(20, 0.1f, 20));
+            
             // Draw fog plane position
             if (useCameraBillboard && Camera.main != null)
             {
@@ -395,23 +596,37 @@ namespace VisionsForetold.Game.Player.Echo
             else
             {
                 Gizmos.color = Color.magenta;
-                Vector3 planePos = player.position;
-                Gizmos.DrawWireCube(planePos, new Vector3(5, 0.1f, 5));
+                Gizmos.DrawWireCube(groundPlaneCenter, new Vector3(15, 0.1f, 15));
             }
 
-            // Draw permanent reveal radius (green circle)
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(player.position, permanentRevealRadius);
+            // Draw permanent reveal radius (cyan circle at ground level)
+            Gizmos.color = Color.cyan;
+            DrawCircleOnGround(groundPlaneCenter, permanentRevealRadius);
 
-            // Draw max pulse radius (yellow circle)
+            // Draw max pulse radius (yellow circle at ground level)
             Gizmos.color = Color.yellow;
-            Gizmos.DrawWireSphere(player.position, maxPulseRadius);
+            DrawCircleOnGround(groundPlaneCenter, maxPulseRadius);
 
-            // Draw current pulse (cyan circle)
+            // Draw current pulse (white circle at ground level)
             if (Application.isPlaying && isPulsing)
             {
-                Gizmos.color = Color.cyan;
-                Gizmos.DrawWireSphere(player.position, currentPulseRadius);
+                Gizmos.color = Color.white;
+                DrawCircleOnGround(groundPlaneCenter, currentPulseRadius);
+            }
+        }
+        
+        private void DrawCircleOnGround(Vector3 center, float radius)
+        {
+            int segments = 32;
+            float angleStep = 360f / segments;
+            Vector3 prevPoint = center + new Vector3(radius, 0, 0);
+            
+            for (int i = 1; i <= segments; i++)
+            {
+                float angle = i * angleStep * Mathf.Deg2Rad;
+                Vector3 newPoint = center + new Vector3(Mathf.Cos(angle) * radius, 0, Mathf.Sin(angle) * radius);
+                Gizmos.DrawLine(prevPoint, newPoint);
+                prevPoint = newPoint;
             }
         }
 
@@ -428,12 +643,15 @@ namespace VisionsForetold.Game.Player.Echo
 
             string status = "=== ECHOLOCATION ===\n";
             status += $"Enabled: {enableEcholocation}\n";
+            status += $"Billboard: {useCameraBillboard}\n";
+            status += $"Ground Level: {(autoDetectGroundLevel ? player.position.y : groundLevel):F2}\n";
             status += $"Auto-Pulse: {autoPulse}\n";
             status += $"Pulsing: {(isPulsing ? "YES ?" : "NO")}\n";
             
             if (isPulsing)
             {
                 status += $"Radius: {currentPulseRadius:F1}/{maxPulseRadius}\n";
+                status += $"Speed: {pulseSpeed:F1} u/s\n";
             }
             else
             {
@@ -442,17 +660,24 @@ namespace VisionsForetold.Game.Player.Echo
             
             status += $"Reveal Fade: {revealFade:F2}\n";
             status += $"Fog Density: {fogDensity:F2}\n";
+            status += $"FPS: {(1f / Time.deltaTime):F0}\n";
             
             if (fogPlane != null)
             {
                 status += $"Plane Active: {fogPlane.activeSelf}\n";
+                status += $"Plane Y: {fogPlane.transform.position.y:F2}\n";
             }
             else
             {
                 status += "? Plane: NULL\n";
             }
+            
+            if (mainCamera == null)
+            {
+                status += "? Camera: NULL\n";
+            }
 
-            GUI.Box(new Rect(10, 10, 280, 180), status, style);
+            GUI.Box(new Rect(10, 10, 300, 260), status, style);
         }
 
         private void OnValidate()

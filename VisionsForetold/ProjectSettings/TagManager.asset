@@ -10,6 +10,8 @@ TagManager:
   - Floor
   - Wall
   - Hazard
+  - Item
+  - Interactive
   layers:
   - Default
   - TransparentFX

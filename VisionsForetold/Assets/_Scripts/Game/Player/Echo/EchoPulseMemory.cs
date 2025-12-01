@@ -35,6 +35,7 @@ namespace VisionsForetold.Game.Player.Echo
         // Track last pulse
         private float lastPulseRadius = 0f;
         private bool wasJustPulsing = false;
+        private bool memoryDataDirty = false;
 
         private void Awake()
         {
@@ -50,8 +51,15 @@ namespace VisionsForetold.Game.Player.Echo
             memoryRadii = new float[maxMemoryZones];
             memoryStrengths = new float[maxMemoryZones];
             memoryEndTimes = new float[maxMemoryZones];
-            
+        }
+
+        private void Start()
+        {
             fogMaterial = echoController.GetFogMaterial();
+            if (fogMaterial == null)
+            {
+                Debug.LogWarning("[EchoPulseMemory] Fog material not available!");
+            }
         }
 
         private void Update()
@@ -62,8 +70,8 @@ namespace VisionsForetold.Game.Player.Echo
             // Detect pulse end
             if (wasJustPulsing && !currentlyPulsing)
             {
-                // Pulse just ended - create memory zone
                 CreateMemoryZone(lastPulseRadius);
+                memoryDataDirty = true;
             }
 
             // Track pulse state
@@ -74,10 +82,17 @@ namespace VisionsForetold.Game.Player.Echo
             }
 
             // Update memory zones
-            UpdateMemoryZones();
+            if (UpdateMemoryZones())
+            {
+                memoryDataDirty = true;
+            }
             
-            // Send to shader
-            SendDataToShader();
+            // Send to shader only when needed
+            if (memoryDataDirty)
+            {
+                SendDataToShader();
+                memoryDataDirty = false;
+            }
         }
 
         private void CreateMemoryZone(float radius)
@@ -122,34 +137,37 @@ namespace VisionsForetold.Game.Player.Echo
             return oldestSlot;
         }
 
-        private void UpdateMemoryZones()
+        private bool UpdateMemoryZones()
         {
+            int previousActiveCount = activeMemoryCount;
             activeMemoryCount = 0;
+            float currentTime = Time.time;
+            bool anyChanged = false;
             
             for (int i = 0; i < maxMemoryZones; i++)
             {
-                if (Time.time < memoryEndTimes[i])
+                if (currentTime < memoryEndTimes[i])
                 {
                     // Calculate fade strength
-                    float timeRemaining = memoryEndTimes[i] - Time.time;
-                    float fadeOutDuration = 1f; // Last second fades out
+                    float timeRemaining = memoryEndTimes[i] - currentTime;
+                    float newStrength = timeRemaining < 1f ? timeRemaining : 1f;
                     
-                    if (timeRemaining < fadeOutDuration)
+                    if (Mathf.Abs(memoryStrengths[i] - newStrength) > 0.01f)
                     {
-                        memoryStrengths[i] = timeRemaining / fadeOutDuration;
-                    }
-                    else
-                    {
-                        memoryStrengths[i] = 1.0f;
+                        memoryStrengths[i] = newStrength;
+                        anyChanged = true;
                     }
                     
                     activeMemoryCount++;
                 }
-                else
+                else if (memoryStrengths[i] > 0f)
                 {
                     memoryStrengths[i] = 0f;
+                    anyChanged = true;
                 }
             }
+            
+            return anyChanged || (activeMemoryCount != previousActiveCount);
         }
 
         private void SendDataToShader()
@@ -157,8 +175,12 @@ namespace VisionsForetold.Game.Player.Echo
             if (fogMaterial == null) return;
 
             fogMaterial.SetInt(MemoryCountID, activeMemoryCount);
-            fogMaterial.SetFloatArray(MemoryRadiiID, memoryRadii);
-            fogMaterial.SetFloatArray(MemoryStrengthsID, memoryStrengths);
+            
+            if (activeMemoryCount > 0)
+            {
+                fogMaterial.SetFloatArray(MemoryRadiiID, memoryRadii);
+                fogMaterial.SetFloatArray(MemoryStrengthsID, memoryStrengths);
+            }
         }
 
         public void ClearAllMemory()
@@ -169,6 +191,7 @@ namespace VisionsForetold.Game.Player.Echo
                 memoryStrengths[i] = 0f;
             }
             activeMemoryCount = 0;
+            memoryDataDirty = true;
         }
     }
 }

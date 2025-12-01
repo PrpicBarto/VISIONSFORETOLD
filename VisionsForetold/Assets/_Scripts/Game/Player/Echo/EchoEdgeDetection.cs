@@ -60,6 +60,9 @@ namespace VisionsForetold.Game.Player.Echo
         private Transform player;
         private Dictionary<GameObject, EdgeData> detectedObjects = new Dictionary<GameObject, EdgeData>();
         private int frameCounter;
+        private List<GameObject> objectsToRemove = new List<GameObject>(10);
+        private Dictionary<GameObject, MeshFilter> meshFilterCache = new Dictionary<GameObject, MeshFilter>(50);
+        private Dictionary<GameObject, Renderer> rendererCache = new Dictionary<GameObject, Renderer>(50);
 
         private class EdgeData
         {
@@ -124,6 +127,9 @@ namespace VisionsForetold.Game.Player.Echo
                 }
             }
             detectedObjects.Clear();
+            objectsToRemove.Clear();
+            meshFilterCache.Clear();
+            rendererCache.Clear();
         }
 
         #endregion
@@ -133,11 +139,14 @@ namespace VisionsForetold.Game.Player.Echo
         private void DetectObjectsAtPulseEdge()
         {
             float pulseRadius = echoController.CurrentPulseRadius;
+            if (pulseRadius < 0.1f) return;
+            
             Vector3 pulseCenter = player.position;
+            float angleStep = 360f / raycastResolution;
 
             for (int i = 0; i < raycastResolution; i++)
             {
-                float angle = (i / (float)raycastResolution) * 360f;
+                float angle = i * angleStep;
                 Vector3 direction = Quaternion.Euler(0, angle, 0) * Vector3.forward;
 
                 if (detect3D)
@@ -148,6 +157,9 @@ namespace VisionsForetold.Game.Player.Echo
                 {
                     CastHorizontalRay(pulseCenter, direction, pulseRadius);
                 }
+                
+                // Early exit if max tracked
+                if (detectedObjects.Count >= maxTrackedObjects) break;
             }
         }
 
@@ -167,10 +179,12 @@ namespace VisionsForetold.Game.Player.Echo
         private void CastVerticalRays(Vector3 origin, Vector3 direction, float radius)
         {
             Vector3 targetPoint = origin + direction * radius;
+            float verticalStep = verticalRange / (verticalRayCount - 1);
+            float startHeight = -verticalRange * 0.5f;
 
             for (int v = 0; v < verticalRayCount; v++)
             {
-                float heightOffset = (v / (float)(verticalRayCount - 1)) * verticalRange - (verticalRange * 0.5f);
+                float heightOffset = startHeight + v * verticalStep;
                 Vector3 rayOrigin = origin + Vector3.up * heightOffset;
                 Vector3 rayDirection = (targetPoint - rayOrigin).normalized;
                 float rayDistance = Vector3.Distance(rayOrigin, targetPoint);
@@ -182,6 +196,7 @@ namespace VisionsForetold.Game.Player.Echo
                     if (distFromEdge <= detectionThreshold)
                     {
                         ProcessHit(hit);
+                        if (detectedObjects.Count >= maxTrackedObjects) break;
                     }
                 }
             }
@@ -203,10 +218,15 @@ namespace VisionsForetold.Game.Player.Echo
             if (detectedObjects.Count >= maxTrackedObjects)
                 return;
 
-            // Get renderer
-            Renderer renderer = hit.collider.GetComponent<Renderer>();
-            if (renderer == null)
-                renderer = hitObject.GetComponentInChildren<Renderer>();
+            // Get renderer with caching
+            if (!rendererCache.TryGetValue(hitObject, out Renderer renderer))
+            {
+                renderer = hit.collider.GetComponent<Renderer>();
+                if (renderer == null)
+                    renderer = hitObject.GetComponentInChildren<Renderer>();
+                    
+                rendererCache[hitObject] = renderer;
+            }
 
             if (renderer == null)
                 return;
@@ -244,29 +264,29 @@ namespace VisionsForetold.Game.Player.Echo
         {
             // Create duplicate object for edge rendering
             GameObject edgeObj = new GameObject($"{target.name}_EdgeOutline");
-            edgeObj.transform.position = target.transform.position;
-            edgeObj.transform.rotation = target.transform.rotation;
-            edgeObj.transform.localScale = target.transform.localScale;
-            edgeObj.transform.SetParent(target.transform, true);
+            edgeObj.transform.SetParent(target.transform, false);
+            edgeObj.transform.localPosition = Vector3.zero;
+            edgeObj.transform.localRotation = Quaternion.identity;
+            edgeObj.transform.localScale = Vector3.one;
 
-            // Copy mesh
-            MeshFilter targetMeshFilter = target.GetComponent<MeshFilter>();
-            if (targetMeshFilter == null)
+            // Get mesh filter with caching
+            if (!meshFilterCache.TryGetValue(target, out MeshFilter targetMeshFilter))
             {
-                targetMeshFilter = target.GetComponentInChildren<MeshFilter>();
+                targetMeshFilter = target.GetComponent<MeshFilter>();
+                if (targetMeshFilter == null)
+                    targetMeshFilter = target.GetComponentInChildren<MeshFilter>();
+                    
+                meshFilterCache[target] = targetMeshFilter;
             }
 
-            if (targetMeshFilter != null)
+            if (targetMeshFilter == null || targetMeshFilter.sharedMesh == null)
             {
-                MeshFilter edgeMeshFilter = edgeObj.AddComponent<MeshFilter>();
-                edgeMeshFilter.sharedMesh = targetMeshFilter.sharedMesh;
-            }
-            else
-            {
-                // No mesh found, cleanup and return null
                 Destroy(edgeObj);
                 return null;
             }
+
+            MeshFilter edgeMeshFilter = edgeObj.AddComponent<MeshFilter>();
+            edgeMeshFilter.sharedMesh = targetMeshFilter.sharedMesh;
 
             // Add renderer with edge material
             MeshRenderer edgeRenderer = edgeObj.AddComponent<MeshRenderer>();
@@ -279,14 +299,14 @@ namespace VisionsForetold.Game.Player.Echo
             edgeMat.SetColor("_EdgeColor", edgeColor);
             edgeMat.SetFloat("_EdgeThickness", edgeThickness);
             edgeMat.SetFloat("_Alpha", 1f);
-            edgeMat.SetColor("_BackgroundColor", new Color(0, 0, 0, 0)); // Transparent background
+            edgeMat.SetColor("_BackgroundColor", new Color(0, 0, 0, 0));
 
             return edgeObj;
         }
 
         private void UpdateEdgeVisibility()
         {
-            List<GameObject> toRemove = new List<GameObject>();
+            objectsToRemove.Clear();
             float currentTime = Time.time;
 
             foreach (var kvp in detectedObjects)
@@ -296,7 +316,7 @@ namespace VisionsForetold.Game.Player.Echo
                 // Check if expired
                 if (currentTime >= data.endTime)
                 {
-                    toRemove.Add(kvp.Key);
+                    objectsToRemove.Add(kvp.Key);
                     continue;
                 }
 
@@ -304,28 +324,24 @@ namespace VisionsForetold.Game.Player.Echo
                 if (data.edgeObject != null)
                 {
                     float timeRemaining = data.endTime - currentTime;
-                    float alpha = 1f;
+                    float alpha = timeRemaining < edgeFadeOutDuration ? timeRemaining / edgeFadeOutDuration : 1f;
 
-                    if (timeRemaining < edgeFadeOutDuration)
-                    {
-                        alpha = timeRemaining / edgeFadeOutDuration;
-                    }
-
-                    // Update alpha on material
+                    // Update material properties
                     Renderer edgeRenderer = data.edgeObject.GetComponent<Renderer>();
                     if (edgeRenderer != null && edgeRenderer.material != null)
                     {
-                        edgeRenderer.material.SetFloat("_Alpha", alpha);
-                        edgeRenderer.material.SetColor("_EdgeColor", edgeColor);
-                        edgeRenderer.material.SetFloat("_EdgeThickness", edgeThickness);
+                        Material mat = edgeRenderer.material;
+                        mat.SetFloat("_Alpha", alpha);
+                        mat.SetColor("_EdgeColor", edgeColor);
+                        mat.SetFloat("_EdgeThickness", edgeThickness);
                     }
                 }
             }
 
             // Remove expired
-            foreach (var obj in toRemove)
+            for (int i = 0; i < objectsToRemove.Count; i++)
             {
-                RemoveEdge(obj);
+                RemoveEdge(objectsToRemove[i]);
             }
         }
 

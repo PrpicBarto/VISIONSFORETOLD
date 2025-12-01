@@ -2457,11 +2457,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 726459505}
+  - component: {fileID: 726459507}
   - component: {fileID: 726459504}
   - component: {fileID: 726459506}
-  - component: {fileID: 726459508}
-  - component: {fileID: 726459507}
-  - component: {fileID: 726459509}
   m_Layer: 0
   m_Name: EchoManager
   m_TagString: Untagged
@@ -2484,9 +2482,15 @@ MonoBehaviour:
   enableEcholocation: 1
   fogMaterial: {fileID: 2100000, guid: a04dbfadc86c83e45adcd541d216eabf, type: 2}
   player: {fileID: 5342806458869551345}
-  planeSize: {x: 200, y: 1, z: 200}
+  planeSize: {x: 500, y: 1, z: 500}
   planeDistanceFromCamera: 10
   useCameraBillboard: 0
+  groundLevel: 1
+  autoDetectGroundLevel: 1
+  fogPlaneHeightOffset: 0.1
+  verticalPlaneCount: 5
+  verticalCoverageHeight: 2
+  useMultiplePlanes: 1
   pulseSpeed: 15
   maxPulseRadius: 15
   pulseInterval: 3
@@ -2518,11 +2522,12 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  fogColor: {r: 0.05, g: 0.05, b: 0.08, a: 0.95}
+  fogColor: {r: 0, g: 0, b: 0, a: 1}
   fogDensity: 1
   fogDistanceFalloff: 1
   fogMinDensity: 0.3
   fogMaxDensity: 1
+  verticalInfluence: 0.8
   edgeColor: {r: 0.3, g: 0.6, b: 1, a: 1}
   edgeIntensity: 3
   showDebug: 1
@@ -2560,7 +2565,7 @@ MonoBehaviour:
   raycastResolution: 32
   detectionThreshold: 2
   detect3D: 1
-  verticalRayCount: 5
+  verticalRayCount: 7
   verticalRayHeight: 10
   wallTag: Wall
   enemyTag: Enemy
@@ -2583,66 +2588,26 @@ MonoBehaviour:
   m_GameObject: {fileID: 726459503}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 43d08d3080eb6894c9e76f179189f052, type: 3}
+  m_Script: {fileID: 11500000, guid: f618d48bc178d574eb0beb0cf977c8fd, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoRevealSystem
-  detectionLayers:
+  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoManager
+  echoController: {fileID: 726459504}
+  intersectionDetector: {fileID: 726459506}
+  revealSystem: {fileID: 0}
+  edgeDetection: {fileID: 0}
+  pulseMemory: {fileID: 0}
+  player: {fileID: 0}
+  mainCamera: {fileID: 0}
+  cameraFarClipPlane: 1000
+  groundLayer:
     serializedVersion: 2
-    m_Bits: 4294967295
-  raycastsPerFrame: 64
-  detectionThreshold: 3
-  revealDuration: 5
-  detect3D: 1
-  verticalRayCount: 5
-  verticalRange: 10
-  maxRevealedObjects: 50
-  revealRadius: 5
-  showDebugLogs: 1
-  showDebugGizmos: 1
---- !u!114 &726459508
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 726459503}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 461fbc8d655d3ec4fa8c516b27fd2f14, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoPulseMemory
-  memoryDuration: 1.5
-  maxMemoryZones: 10
+    m_Bits: 0
+  manualGroundLevel: 0
+  useManualGroundLevel: 0
+  echolocationMaterial: {fileID: 2100000, guid: a04dbfadc86c83e45adcd541d216eabf, type: 2}
+  updateInterval: 0
   showDebug: 1
---- !u!114 &726459509
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 726459503}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9af5311a9b5850447a7cd3de37b5c6fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoEdgeDetection
-  detectionLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  raycastResolution: 64
-  detectionThreshold: 2
-  detect3D: 1
-  verticalRayCount: 5
-  verticalRange: 10
-  edgeMaterial: {fileID: 2100000, guid: 4c64460898f67bd4aa0a8ff98277e45f, type: 2}
-  edgeColor: {r: 0.3, g: 0.8, b: 1, a: 1}
-  edgeThickness: 0.01
-  edgeVisibilityDuration: 2
-  edgeFadeOutDuration: 0.5
-  maxTrackedObjects: 50
-  detectionFrameInterval: 1
-  showDebugLogs: 1
-  showDebugGizmos: 1
+  validateSetupOnStart: 1
 --- !u!1 &736564447
 GameObject:
   m_ObjectHideFlags: 0
