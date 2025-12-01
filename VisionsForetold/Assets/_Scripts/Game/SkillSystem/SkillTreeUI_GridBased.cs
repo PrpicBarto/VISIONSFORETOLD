@@ -102,14 +102,10 @@ namespace VisionsForetold.Game.SaveSystem
 
             if (skillManager == null)
             {
-                Debug.LogWarning("[SkillTreeUI_Grid] SkillManager not found, attempting to find...");
                 skillManager = FindObjectOfType<SkillManager>();
 
                 if (skillManager == null)
-                {
-                    Debug.LogError("[SkillTreeUI_Grid] SkillManager not found in scene!");
                     return;
-                }
             }
 
             SubscribeToEvents();
@@ -331,8 +327,6 @@ namespace VisionsForetold.Game.SaveSystem
 
             // Create grid layout
             CreateGridLayout(skills);
-
-            Debug.Log($"[SkillTreeUI_Grid] Displaying {skills.Count} skills");
         }
 
         private void ClearGrid()
@@ -348,10 +342,7 @@ namespace VisionsForetold.Game.SaveSystem
         private void CreateGridLayout(List<Skill> skills)
         {
             if (skillCardPrefab == null || skillGridContainer == null)
-            {
-                Debug.LogError("[SkillTreeUI_Grid] Missing prefab or container!");
                 return;
-            }
 
             // Setup grid layout group
             GridLayoutGroup gridLayout = skillGridContainer.GetComponent<GridLayoutGroup>();
@@ -636,8 +627,6 @@ namespace VisionsForetold.Game.SaveSystem
 
             // Set initial selection after filter
             SetInitialSelection();
-
-            Debug.Log($"[SkillTreeUI_Grid] Filtered to: {(category.HasValue ? category.Value.ToString() : "All")}");
         }
 
         private void SetInitialSelection()

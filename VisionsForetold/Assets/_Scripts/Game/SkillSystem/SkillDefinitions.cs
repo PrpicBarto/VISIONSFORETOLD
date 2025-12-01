@@ -34,12 +34,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                var attack = player.GetComponent<PlayerAttack>();
-                if (attack != null)
-                {
-                    // Effect applied through SkillManager.GetTotalBonus()
-                    Debug.Log($"Power Strike active: +{GetEffectValue(SkillEffectType.DamageBoost)} damage");
-                }
+                // Effect applied through SkillManager.GetTotalBonus()
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -80,7 +75,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Combo Master active: +{GetEffectValue(SkillEffectType.ComboExtension)} combo hits");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -112,7 +107,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Critical Strike active: {GetEffectValue(SkillEffectType.CriticalChance)}% crit chance");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -144,7 +139,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Swift Strikes active: {GetEffectValue(SkillEffectType.AttackSpeedBoost)}% attack speed");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -182,7 +177,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Arcane Power active: +{GetEffectValue(SkillEffectType.SpellPowerBoost)}% spell damage");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -215,7 +210,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Spell Mastery active: -{GetEffectValue(SkillEffectType.CooldownReduction)}% cooldown");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -248,7 +243,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Widening Blast active: +{GetEffectValue(SkillEffectType.AreaOfEffect)}% AoE radius");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -281,7 +276,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Elemental Focus active: +{GetEffectValue(SkillEffectType.ElementalDamage)}% elemental damage");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -324,7 +319,6 @@ namespace VisionsForetold.Game.SkillSystem
                 {
                     int bonus = Mathf.RoundToInt(GetEffectValue(SkillEffectType.HealthBoost));
                     health.SetMaxHealth(health.MaxHealth + bonus, true);
-                    Debug.Log($"Vitality active: +{bonus} max health");
                 }
             }
 
@@ -365,7 +359,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Iron Skin active: -{GetEffectValue(SkillEffectType.DefenseBoost)}% damage taken");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -398,7 +392,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Life Steal active: {GetEffectValue(SkillEffectType.LifeSteal)}% lifesteal");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -436,12 +430,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                var movement = player.GetComponent<PlayerMovement>();
-                if (movement != null)
-                {
-                    // Applied through SkillManager
-                    Debug.Log($"Fleet Footed active: +{GetEffectValue(SkillEffectType.MovementSpeed)}% move speed");
-                }
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }
@@ -473,7 +462,7 @@ namespace VisionsForetold.Game.SkillSystem
 
             public override void ApplyEffects(GameObject player)
             {
-                Debug.Log($"Quick Learner active: +{GetEffectValue(SkillEffectType.DamageBoost)}% XP gain");
+                // Effect applied through SkillManager
             }
 
             public override void RemoveEffects(GameObject player) { }

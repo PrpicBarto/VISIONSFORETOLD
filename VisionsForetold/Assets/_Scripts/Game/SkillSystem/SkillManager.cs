@@ -52,10 +52,6 @@ namespace VisionsForetold.Game.SkillSystem
         private void Start()
         {
             player = GameObject.FindGameObjectWithTag("Player");
-            if (player == null)
-            {
-                Debug.LogWarning("[SkillManager] Player not found! Some skills may not work.");
-            }
         }
 
         #endregion
@@ -68,8 +64,6 @@ namespace VisionsForetold.Game.SkillSystem
             availableSkills = new Dictionary<string, Skill>();
 
             RegisterAllSkills();
-
-            Debug.Log($"[SkillManager] Initialized with {availableSkills.Count} skills");
         }
 
         /// <summary>
@@ -117,24 +111,15 @@ namespace VisionsForetold.Game.SkillSystem
         public bool UnlockSkill(string skillId)
         {
             if (!availableSkills.ContainsKey(skillId))
-            {
-                Debug.LogWarning($"[SkillManager] Skill not found: {skillId}");
                 return false;
-            }
 
             Skill skill = availableSkills[skillId];
 
             if (skill.IsUnlocked)
-            {
-                Debug.LogWarning($"[SkillManager] Skill already unlocked: {skill.skillName}");
                 return false;
-            }
 
             if (!skill.CanUnlock(currentSkillData))
-            {
-                Debug.LogWarning($"[SkillManager] Cannot unlock {skill.skillName} - requirements not met");
                 return false;
-            }
 
             // Deduct skill points
             currentSkillData.skillPoints -= skill.requirements.requiredSkillPoints;
@@ -154,7 +139,6 @@ namespace VisionsForetold.Game.SkillSystem
             OnSkillUnlocked?.Invoke(skill);
             OnSkillPointsChanged?.Invoke(currentSkillData.skillPoints);
 
-            Debug.Log($"[SkillManager] ? Unlocked: {skill.skillName}");
             return true;
         }
 
@@ -169,10 +153,7 @@ namespace VisionsForetold.Game.SkillSystem
             Skill skill = availableSkills[skillId];
 
             if (!skill.CanLevelUp(currentSkillData))
-            {
-                Debug.LogWarning($"[SkillManager] Cannot level up {skill.skillName}");
                 return false;
-            }
 
             // Remove old effects
             if (player != null)
@@ -197,7 +178,6 @@ namespace VisionsForetold.Game.SkillSystem
             OnSkillLeveledUp?.Invoke(skill);
             OnSkillPointsChanged?.Invoke(currentSkillData.skillPoints);
 
-            Debug.Log($"[SkillManager] ? Leveled up: {skill.skillName} to level {skill.currentLevel}");
             return true;
         }
 
@@ -208,10 +188,7 @@ namespace VisionsForetold.Game.SkillSystem
         {
             // Ensure availableSkills is initialized
             if (availableSkills == null)
-            {
-                Debug.LogWarning("[SkillManager] availableSkills not initialized, initializing now");
                 InitializeSkillSystem();
-            }
             
             return availableSkills.ContainsKey(skillId) ? availableSkills[skillId] : null;
         }
@@ -223,10 +200,7 @@ namespace VisionsForetold.Game.SkillSystem
         {
             // Ensure availableSkills is initialized
             if (availableSkills == null)
-            {
-                Debug.LogWarning("[SkillManager] availableSkills not initialized, initializing now");
                 InitializeSkillSystem();
-            }
             
             return availableSkills.Values.ToList();
         }
@@ -238,10 +212,7 @@ namespace VisionsForetold.Game.SkillSystem
         {
             // Ensure availableSkills is initialized
             if (availableSkills == null)
-            {
-                Debug.LogWarning("[SkillManager] availableSkills not initialized, initializing now");
                 InitializeSkillSystem();
-            }
             
             return availableSkills.Values.Where(s => s.category == category).ToList();
         }
@@ -253,10 +224,7 @@ namespace VisionsForetold.Game.SkillSystem
         {
             // Ensure availableSkills is initialized
             if (availableSkills == null)
-            {
-                Debug.LogWarning("[SkillManager] availableSkills not initialized, initializing now");
                 InitializeSkillSystem();
-            }
             
             return availableSkills.Values.Where(s => s.IsUnlocked).ToList();
         }
@@ -281,8 +249,6 @@ namespace VisionsForetold.Game.SkillSystem
             currentSkillData.experience += amount;
             OnExperienceGained?.Invoke(amount);
 
-            Debug.Log($"[SkillManager] +{amount} XP (Total: {currentSkillData.experience}/{currentSkillData.experienceToNextLevel})");
-
             // Check for level up
             while (currentSkillData.experience >= currentSkillData.experienceToNextLevel)
             {
@@ -303,8 +269,6 @@ namespace VisionsForetold.Game.SkillSystem
 
             OnLevelUp?.Invoke(currentSkillData.level);
             OnSkillPointsChanged?.Invoke(currentSkillData.skillPoints);
-
-            Debug.Log($"[SkillManager] ? LEVEL UP! Now level {currentSkillData.level} ({currentSkillData.skillPoints} skill points)");
         }
 
         #endregion
@@ -360,7 +324,6 @@ namespace VisionsForetold.Game.SkillSystem
             if (Random.Range(0f, 100f) < critChance)
             {
                 damage *= 2f;
-                Debug.Log("<color=yellow>? CRITICAL HIT!</color>");
             }
 
             return Mathf.RoundToInt(damage);
@@ -428,10 +391,7 @@ namespace VisionsForetold.Game.SkillSystem
         {
             // Ensure currentSkillData is initialized
             if (currentSkillData == null)
-            {
-                Debug.LogWarning("[SkillManager] currentSkillData was null, initializing new data");
                 currentSkillData = new SkillSaveData();
-            }
             
             return currentSkillData;
         }
@@ -442,10 +402,7 @@ namespace VisionsForetold.Game.SkillSystem
         public void LoadSkillData(SkillSaveData saveData)
         {
             if (saveData == null)
-            {
-                Debug.LogWarning("[SkillManager] Cannot load null skill data");
                 return;
-            }
 
             // Remove all current skill effects
             foreach (Skill skill in GetUnlockedSkills())
@@ -476,8 +433,6 @@ namespace VisionsForetold.Game.SkillSystem
                     }
                 }
             }
-
-            Debug.Log($"[SkillManager] Loaded skill data - Level {currentSkillData.level}, {currentSkillData.unlockedSkillIds.Count} skills unlocked");
         }
 
         /// <summary>
@@ -486,7 +441,6 @@ namespace VisionsForetold.Game.SkillSystem
         public void CreateNewSkillData()
         {
             currentSkillData = new SkillSaveData();
-            Debug.Log("[SkillManager] Created new skill data");
         }
 
         #endregion
@@ -504,24 +458,12 @@ namespace VisionsForetold.Game.SkillSystem
         {
             currentSkillData.skillPoints += 5;
             OnSkillPointsChanged?.Invoke(currentSkillData.skillPoints);
-            Debug.Log($"[SkillManager] Added 5 skill points (Total: {currentSkillData.skillPoints})");
         }
 
         [ContextMenu("Print Skill Stats")]
         private void PrintSkillStats()
         {
-            Debug.Log("=== SKILL STATS ===");
-            Debug.Log($"Level: {currentSkillData.level}");
-            Debug.Log($"XP: {currentSkillData.experience}/{currentSkillData.experienceToNextLevel}");
-            Debug.Log($"Skill Points: {currentSkillData.skillPoints}");
-            Debug.Log($"Unlocked Skills: {currentSkillData.unlockedSkillIds.Count}");
-            
-            Debug.Log("\n=== BONUSES ===");
-            Debug.Log($"Damage Bonus: +{GetTotalBonus(SkillEffectType.DamageBoost, false)} / +{GetTotalBonus(SkillEffectType.DamageBoost, true)}%");
-            Debug.Log($"Attack Speed: +{GetTotalBonus(SkillEffectType.AttackSpeedBoost, true)}%");
-            Debug.Log($"Spell Power: +{GetTotalBonus(SkillEffectType.SpellPowerBoost, true)}%");
-            Debug.Log($"Critical Chance: {GetTotalBonus(SkillEffectType.CriticalChance, true)}%");
-            Debug.Log($"Movement Speed: +{GetTotalBonus(SkillEffectType.MovementSpeed, true)}%");
+            // Print to console for debugging
         }
 
         private void OnGUI()

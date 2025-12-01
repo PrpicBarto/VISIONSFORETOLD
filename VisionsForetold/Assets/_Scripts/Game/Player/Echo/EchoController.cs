@@ -85,6 +85,7 @@ namespace VisionsForetold.Game.Player.Echo
         private GameObject fogPlane;
         private GameObject[] fogPlanes; // Multiple planes for vertical coverage
         private float currentPulseRadius;
+        private float pulseAge; // Time since pulse started
         private float timeSinceLastPulse;
         private bool isPulsing;
         private float revealFade = 0f;
@@ -103,6 +104,7 @@ namespace VisionsForetold.Game.Player.Echo
         private static readonly int PulseRadiusID = Shader.PropertyToID("_PulseRadius");
         private static readonly int PulseWidthID = Shader.PropertyToID("_PulseWidth");
         private static readonly int PulseIntensityID = Shader.PropertyToID("_PulseIntensity");
+        private static readonly int PulseAgeID = Shader.PropertyToID("_PulseAge");
         private static readonly int RevealRadiusID = Shader.PropertyToID("_RevealRadius");
         private static readonly int RevealFadeID = Shader.PropertyToID("_RevealFade");
         private static readonly int EdgeColorID = Shader.PropertyToID("_EdgeColor");
@@ -405,6 +407,7 @@ namespace VisionsForetold.Game.Player.Echo
             if (!isPulsing) return;
 
             currentPulseRadius += pulseSpeed * Time.deltaTime;
+            pulseAge += Time.deltaTime;
             
             if (currentPulseRadius >= maxPulseRadius)
             {
@@ -441,6 +444,7 @@ namespace VisionsForetold.Game.Player.Echo
             material.SetVector(PulseCenterID, pulseCenter);
             material.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
             material.SetFloat(PulseIntensityID, isPulsing ? 1f : 0f);
+            material.SetFloat(PulseAgeID, isPulsing ? pulseAge : 0f);
             
             // Only update static properties when dirty
             if (shaderPropertiesDirty)
@@ -472,6 +476,7 @@ namespace VisionsForetold.Game.Player.Echo
 
             isPulsing = true;
             currentPulseRadius = 0f;
+            pulseAge = 0f;
             timeSinceLastPulse = 0f;
             timeSinceReveal = 0f;
             revealFade = 0f;

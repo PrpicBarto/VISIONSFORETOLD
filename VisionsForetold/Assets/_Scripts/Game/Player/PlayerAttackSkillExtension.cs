@@ -27,7 +27,6 @@ public class PlayerAttackSkillExtension : MonoBehaviour
 
         if (skillManager == null)
         {
-            Debug.LogWarning("[PlayerAttackSkillExtension] SkillManager not found. Skills won't affect combat.");
             enabled = false;
             return;
         }
@@ -64,8 +63,6 @@ public class PlayerAttackSkillExtension : MonoBehaviour
         // This method would modify PlayerAttack fields
         // Since PlayerAttack fields are private/serialized, we can't directly modify them
         // Instead, we create wrapper methods in PlayerAttack that skills can enhance
-        
-        Debug.Log("[PlayerAttackSkillExtension] Applied skill bonuses to combat");
     }
 
     /// <summary>
@@ -123,7 +120,6 @@ public class PlayerAttackSkillExtension : MonoBehaviour
                 if (playerHealth != null)
                 {
                     playerHealth.Heal(healAmount);
-                    Debug.Log($"<color=green>Lifesteal: +{healAmount} HP</color>");
                 }
             }
         }
@@ -147,11 +143,6 @@ public class PlayerAttackSkillExtension : MonoBehaviour
 
         float reduction = skillManager.GetDamageReduction();
         int reducedDamage = Mathf.RoundToInt(incomingDamage * (1f - reduction));
-        
-        if (reducedDamage < incomingDamage)
-        {
-            Debug.Log($"<color=blue>Damage reduced by {incomingDamage - reducedDamage} (Defense skills)</color>");
-        }
 
         return reducedDamage;
     }

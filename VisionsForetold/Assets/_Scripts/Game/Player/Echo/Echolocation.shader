@@ -17,6 +17,9 @@ Shader "Custom/URP/Echolocation"
         _PulseRadius ("Pulse Radius", Float) = 0
         _PulseWidth ("Pulse Width", Float) = 5.0
         _PulseIntensity ("Pulse Intensity", Range(0, 1)) = 1.0
+        _PulseAge ("Pulse Age (Time)", Float) = 0
+        _PulseFadeDelay ("Fade Delay After Pulse", Float) = 0.5
+        _PulseFadeSpeed ("Fade Back Speed", Float) = 2.0
         
         [Header(Revealed Areas)]
         _RevealRadius ("Permanent Reveal Radius", Float) = 10.0
@@ -85,6 +88,9 @@ Shader "Custom/URP/Echolocation"
                 float _PulseRadius;
                 float _PulseWidth;
                 float _PulseIntensity;
+                float _PulseAge;
+                float _PulseFadeDelay;
+                float _PulseFadeSpeed;
                 
                 float _RevealRadius;
                 float _RevealFade;
@@ -149,17 +155,39 @@ Shader "Custom/URP/Echolocation"
                 
                 // Pulse reveal and edge glow
                 half edgeGlow = 0.0;
+                half pulseReveal = 0.0;
                 
                 if (_PulseRadius > 0.1)
                 {
-                    // Reveal entire area inside pulse (ground level)
-                    half pulseReveal = step(distFromPlayer, _PulseRadius) * _PulseIntensity;
+                    // Calculate if pixel is within or behind the pulse
+                    float distanceToPulse = distFromPlayer - _PulseRadius;
                     
-                    // Edge glow at pulse ring
-                    float distFromRing = abs(distFromPlayer - _PulseRadius);
-                    half ringMask = 1.0 - saturate(distFromRing / _PulseWidth);
-                    ringMask = ringMask * ringMask; // Squared for sharper falloff
-                    edgeGlow = ringMask * _EdgeIntensity * _PulseIntensity;
+                    // Pulse has passed this pixel
+                    if (distanceToPulse < 0)
+                    {
+                        // Calculate fade based on time since pulse passed
+                        // The further behind the pulse ring, the longer it's been revealed
+                        float timeSincePulsePassed = abs(distanceToPulse) / (_PulseRadius + 0.01); // Normalized 0-1
+                        timeSincePulsePassed = saturate(timeSincePulsePassed * _PulseAge);
+                        
+                        // Apply fade delay and speed
+                        float fadeAmount = saturate((timeSincePulsePassed - _PulseFadeDelay) * _PulseFadeSpeed);
+                        
+                        // Reveal starts at full intensity, then fades back to fog
+                        pulseReveal = (1.0 - fadeAmount) * _PulseIntensity;
+                    }
+                    // Pulse ring is at this pixel
+                    else if (distanceToPulse <= _PulseWidth)
+                    {
+                        // Full reveal at the pulse ring edge
+                        pulseReveal = _PulseIntensity;
+                        
+                        // Edge glow at pulse ring
+                        float ringPosition = distanceToPulse / _PulseWidth; // 0 at ring, 1 at edge
+                        half ringMask = 1.0 - ringPosition;
+                        ringMask = ringMask * ringMask; // Squared for sharper falloff
+                        edgeGlow = ringMask * _EdgeIntensity * _PulseIntensity;
+                    }
                     
                     fogAlpha *= (1.0 - pulseReveal);
                 }

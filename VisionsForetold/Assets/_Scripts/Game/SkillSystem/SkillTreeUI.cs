@@ -95,19 +95,10 @@ namespace VisionsForetold.Game.SaveSystem
 
             if (skillManager == null)
             {
-                Debug.LogWarning("[SkillTreeUI] SkillManager not found on Enable, trying to find it...");
-                // Try to find it in the scene
                 skillManager = FindObjectOfType<SkillManager>();
                 
                 if (skillManager == null)
-                {
-                    Debug.LogError("[SkillTreeUI] SkillManager not found in scene! Please add SkillManager to the scene.");
                     return;
-                }
-                else
-                {
-                    Debug.Log("[SkillTreeUI] Found SkillManager via FindObjectOfType");
-                }
             }
 
             // Subscribe to events
@@ -150,10 +141,7 @@ namespace VisionsForetold.Game.SaveSystem
         public void RefreshUI()
         {
             if (skillManager == null)
-            {
-                Debug.LogWarning("[SkillTreeUI] Cannot refresh UI - SkillManager is null");
                 return;
-            }
 
             UpdatePlayerInfo();
             RefreshSkillList();
@@ -165,18 +153,12 @@ namespace VisionsForetold.Game.SaveSystem
         private void UpdatePlayerInfo()
         {
             if (skillManager == null)
-            {
-                Debug.LogWarning("[SkillTreeUI] Cannot update player info - SkillManager is null");
                 return;
-            }
 
             var skillData = skillManager.GetSkillSaveData();
             
             if (skillData == null)
-            {
-                Debug.LogError("[SkillTreeUI] GetSkillSaveData returned null! SkillManager may not be initialized properly.");
                 return;
-            }
 
             if (levelText != null)
                 levelText.text = $"Level: {skillData.level}";
@@ -200,10 +182,7 @@ namespace VisionsForetold.Game.SaveSystem
         private void RefreshSkillList()
         {
             if (skillManager == null)
-            {
-                Debug.LogWarning("[SkillTreeUI] Cannot refresh skill list - SkillManager is null");
                 return;
-            }
 
             // Clear existing buttons
             foreach (var skillButton in skillButtons)
@@ -218,12 +197,10 @@ namespace VisionsForetold.Game.SaveSystem
             if (currentFilter.HasValue)
             {
                 skills = skillManager.GetSkillsByCategory(currentFilter.Value);
-                Debug.Log($"[SkillTreeUI] Showing {currentFilter.Value} skills: {skills.Count} found");
             }
             else
             {
                 skills = skillManager.GetAllSkills();
-                Debug.Log($"[SkillTreeUI] Showing all skills: {skills.Count} found");
             }
 
             // Create skill buttons
@@ -246,7 +223,6 @@ namespace VisionsForetold.Game.SaveSystem
             if (skillListContainer != null)
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(skillListContainer as RectTransform);
-                Debug.Log("[SkillTreeUI] Layout rebuilt to prevent stacking");
             }
         }
 
@@ -323,7 +299,6 @@ namespace VisionsForetold.Game.SaveSystem
         private void FilterSkills(SkillCategory? category)
         {
             currentFilter = category; // null = all skills, otherwise specific category
-            Debug.Log($"[SkillTreeUI] Filter changed to: {(category.HasValue ? category.Value.ToString() : "All Skills")}");
             RefreshSkillList();
         }
 
@@ -449,7 +424,6 @@ namespace VisionsForetold.Game.SaveSystem
             }
 
             selectedSkill = null;
-            Debug.Log("[SkillTreeUI] Returned to skill list");
         }
 
         /// <summary>
@@ -496,7 +470,6 @@ namespace VisionsForetold.Game.SaveSystem
         private void OnPlayerLevelUp(int newLevel)
         {
             UpdatePlayerInfo();
-            Debug.Log($"[SkillTreeUI] Player leveled up to {newLevel}!");
         }
 
         private void OnSkillPointsChanged(int points)
