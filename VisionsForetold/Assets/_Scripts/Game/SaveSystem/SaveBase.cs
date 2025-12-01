@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using VisionsForetold.Game.SkillSystem;
 
 namespace VisionsForetold.Game.SaveSystem
 {
@@ -22,8 +23,8 @@ namespace VisionsForetold.Game.SaveSystem
         public Quaternion playerRotation;
         public string currentSceneName;
 
-        // Skills (to be expanded based on your skill system)
-        public SkillData skills;
+        // Skills (integrated with SkillSystem)
+        public SkillSaveData skills;
 
         // Constructor
         public SaveData()
@@ -31,14 +32,16 @@ namespace VisionsForetold.Game.SaveSystem
             saveName = "New Save";
             saveDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             playtime = 0f;
-            skills = new SkillData();
+            skills = new SkillSaveData();
         }
     }
 
     /// <summary>
-    /// Skills data structure
+    /// DEPRECATED: Old SkillData structure - use SkillSaveData instead
+    /// Kept for backward compatibility
     /// </summary>
     [Serializable]
+    [System.Obsolete("Use SkillSaveData from SkillSystem namespace instead")]
     public class SkillData
     {
         public int skillPoints;

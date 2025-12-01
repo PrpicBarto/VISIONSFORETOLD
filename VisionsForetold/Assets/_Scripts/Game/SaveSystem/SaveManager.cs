@@ -63,12 +63,24 @@ namespace VisionsForetold.Game.SaveSystem
 
         private void InitializeSaveSystem()
         {
-            saveDirectory = Path.Combine(Application.persistentDataPath, "Saves");
-            
-            if (!Directory.Exists(saveDirectory))
+            try
             {
-                Directory.CreateDirectory(saveDirectory);
-                Debug.Log($"[SaveManager] Created save directory: {saveDirectory}");
+                saveDirectory = Path.Combine(Application.persistentDataPath, "Saves");
+                
+                if (!Directory.Exists(saveDirectory))
+                {
+                    Directory.CreateDirectory(saveDirectory);
+                    Debug.Log($"[SaveManager] Created save directory: {saveDirectory}");
+                }
+                else
+                {
+                    Debug.Log($"[SaveManager] Save directory exists: {saveDirectory}");
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SaveManager] Failed to initialize save directory: {e.Message}");
+                OnSaveError?.Invoke($"Failed to initialize save system: {e.Message}");
             }
         }
 
@@ -83,14 +95,15 @@ namespace VisionsForetold.Game.SaveSystem
         {
             if (isSaving)
             {
-                Debug.LogWarning("[SaveManager] Save already in progress!");
+                Debug.LogWarning("[SaveManager] Save already in progress! Please wait.");
+                OnSaveError?.Invoke("Save already in progress");
                 return;
             }
 
             if (slotIndex < 0 || slotIndex >= maxSaveSlots)
             {
-                Debug.LogError($"[SaveManager] Invalid save slot: {slotIndex}");
-                OnSaveError?.Invoke("Invalid save slot");
+                Debug.LogError($"[SaveManager] Invalid save slot: {slotIndex}. Valid range: 0-{maxSaveSlots - 1}");
+                OnSaveError?.Invoke($"Invalid save slot: {slotIndex}");
                 return;
             }
 
@@ -102,33 +115,60 @@ namespace VisionsForetold.Game.SaveSystem
                 if (currentSaveData == null)
                 {
                     currentSaveData = new SaveData();
+                    Debug.Log("[SaveManager] Created new save data");
                 }
 
+                // Update save metadata
                 currentSaveData.saveSlotIndex = slotIndex;
-                currentSaveData.saveName = saveName ?? $"Save {slotIndex + 1}";
+                currentSaveData.saveName = !string.IsNullOrWhiteSpace(saveName) ? saveName : $"Save {slotIndex + 1}";
                 currentSaveData.saveDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 currentSaveData.currentSceneName = SceneManager.GetActiveScene().name;
 
+                Debug.Log($"[SaveManager] Saving to slot {slotIndex}: '{currentSaveData.saveName}' in scene '{currentSaveData.currentSceneName}'");
+
                 // Collect player data
-                CollectPlayerData();
+                if (!CollectPlayerData())
+                {
+                    Debug.LogWarning("[SaveManager] Failed to collect complete player data, saving partial state");
+                }
 
                 // Save to file
                 string filePath = GetSaveFilePath(slotIndex);
                 string json = JsonUtility.ToJson(currentSaveData, true);
-                File.WriteAllText(filePath, json);
+                
+                // Write to file with backup
+                WriteSaveFile(filePath, json);
 
-                Debug.Log($"[SaveManager] Game saved to slot {slotIndex}: {filePath}");
+                Debug.Log($"[SaveManager] ? Game saved successfully to slot {slotIndex}: {filePath}");
                 OnGameSaved?.Invoke(currentSaveData);
             }
             catch (Exception e)
             {
-                Debug.LogError($"[SaveManager] Failed to save game: {e.Message}");
+                Debug.LogError($"[SaveManager] ? Failed to save game: {e.Message}\nStack trace: {e.StackTrace}");
                 OnSaveError?.Invoke($"Save failed: {e.Message}");
             }
             finally
             {
                 isSaving = false;
             }
+        }
+
+        /// <summary>
+        /// Writes save file with backup protection
+        /// </summary>
+        private void WriteSaveFile(string filePath, string json)
+        {
+            // Create backup if file exists
+            if (File.Exists(filePath))
+            {
+                string backupPath = filePath + ".backup";
+                File.Copy(filePath, backupPath, true);
+            }
+
+            // Write to file
+            File.WriteAllText(filePath, json);
+            
+            Debug.Log($"[SaveManager] Wrote {json.Length} bytes to {filePath}");
         }
 
         /// <summary>
@@ -146,14 +186,25 @@ namespace VisionsForetold.Game.SaveSystem
         /// <summary>
         /// Collects all player data for saving
         /// </summary>
-        private void CollectPlayerData()
+        /// <returns>True if all data collected successfully, false if partial</returns>
+        private bool CollectPlayerData()
         {
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
+            bool success = true;
+            
+            try
             {
+                GameObject player = GameObject.FindGameObjectWithTag("Player");
+                
+                if (player == null)
+                {
+                    Debug.LogWarning("[SaveManager] Player not found! Cannot save player data.");
+                    return false;
+                }
+
                 // Save position and rotation
                 currentSaveData.playerPosition = player.transform.position;
                 currentSaveData.playerRotation = player.transform.rotation;
+                Debug.Log($"[SaveManager] Saved player position: {currentSaveData.playerPosition}");
 
                 // Save health
                 Health playerHealth = player.GetComponent<Health>();
@@ -161,11 +212,37 @@ namespace VisionsForetold.Game.SaveSystem
                 {
                     currentSaveData.playerHealth = playerHealth.CurrentHealth;
                     currentSaveData.playerMaxHealth = playerHealth.MaxHealth;
+                    Debug.Log($"[SaveManager] Saved player health: {currentSaveData.playerHealth}/{currentSaveData.playerMaxHealth}");
+                }
+                else
+                {
+                    Debug.LogWarning("[SaveManager] Health component not found on player");
+                    success = false;
+                }
+
+                // Save skills from SkillManager
+                var skillManager = VisionsForetold.Game.SkillSystem.SkillManager.Instance;
+                if (skillManager != null)
+                {
+                    currentSaveData.skills = skillManager.GetSkillSaveData();
+                    Debug.Log($"[SaveManager] Saved skills - Level: {currentSaveData.skills.level}, Points: {currentSaveData.skills.skillPoints}");
+                }
+                else
+                {
+                    Debug.LogWarning("[SaveManager] SkillManager not found - skills not saved");
+                    success = false;
                 }
 
                 // Add more player data collection here as needed
                 // Example: inventory, quests, etc.
             }
+            catch (Exception e)
+            {
+                Debug.LogError($"[SaveManager] Error collecting player data: {e.Message}");
+                success = false;
+            }
+            
+            return success;
         }
 
         #endregion
@@ -242,6 +319,18 @@ namespace VisionsForetold.Game.SaveSystem
                 {
                     playerHealth.SetMaxHealth(currentSaveData.playerMaxHealth, false);
                     playerHealth.SetHealth(currentSaveData.playerHealth);
+                }
+
+                // Apply skills from SkillManager
+                var skillManager = VisionsForetold.Game.SkillSystem.SkillManager.Instance;
+                if (skillManager != null && currentSaveData.skills != null)
+                {
+                    skillManager.LoadSkillData(currentSaveData.skills);
+                    Debug.Log($"[SaveManager] Loaded skills - Level: {currentSaveData.skills.level}");
+                }
+                else if (skillManager == null)
+                {
+                    Debug.LogWarning("[SaveManager] SkillManager not found - skills not loaded");
                 }
 
                 // Apply other data as needed

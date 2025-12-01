@@ -52,7 +52,29 @@ namespace VisionsForetold.Game.SaveSystem
 
         private void Awake()
         {
+            // Initialize EventSystem first
+            InitializeEventSystem();
+            
+            // Setup button listeners
+            InitializeButtons();
+            
+            // Initialize panels
+            InitializePanels();
+        }
+
+        private void Start()
+        {
+            // Get SaveManager instance (might not be ready in Awake)
             saveManager = SaveManager.Instance;
+            
+            if (saveManager == null)
+            {
+                Debug.LogError("[SaveStationMenu] SaveManager instance not found! Make sure SaveManager exists in the scene.");
+            }
+        }
+
+        private void InitializeEventSystem()
+        {
             eventSystem = EventSystem.current;
 
             // Find or create EventSystem if it doesn't exist
@@ -61,26 +83,54 @@ namespace VisionsForetold.Game.SaveSystem
                 GameObject eventSystemObj = new GameObject("EventSystem");
                 eventSystem = eventSystemObj.AddComponent<EventSystem>();
                 eventSystemObj.AddComponent<StandaloneInputModule>();
+                Debug.Log("[SaveStationMenu] Created EventSystem");
             }
+        }
 
-            // Setup button listeners
-            if (saveButton != null) saveButton.onClick.AddListener(OnSaveButtonClicked);
-            if (skillsButton != null) skillsButton.onClick.AddListener(OnSkillsButtonClicked);
-            if (exitButton != null) exitButton.onClick.AddListener(OnExitButtonClicked);
+        private void InitializeButtons()
+        {
+            // Main menu buttons
+            if (saveButton != null) 
+                saveButton.onClick.AddListener(OnSaveButtonClicked);
+            else
+                Debug.LogWarning("[SaveStationMenu] Save button not assigned!");
+                
+            if (skillsButton != null) 
+                skillsButton.onClick.AddListener(OnSkillsButtonClicked);
+            if (exitButton != null) 
+                exitButton.onClick.AddListener(OnExitButtonClicked);
 
-            if (confirmSaveButton != null) confirmSaveButton.onClick.AddListener(OnConfirmSaveClicked);
-            if (cancelSaveButton != null) cancelSaveButton.onClick.AddListener(OnCancelSaveClicked);
+            // Save panel buttons
+            if (confirmSaveButton != null) 
+                confirmSaveButton.onClick.AddListener(OnConfirmSaveClicked);
+            if (cancelSaveButton != null) 
+                cancelSaveButton.onClick.AddListener(OnCancelSaveClicked);
 
-            if (closeSkillsButton != null) closeSkillsButton.onClick.AddListener(OnCloseSkillsClicked);
+            // Skills panel buttons
+            if (closeSkillsButton != null) 
+                closeSkillsButton.onClick.AddListener(OnCloseSkillsClicked);
 
-            if (confirmYesButton != null) confirmYesButton.onClick.AddListener(OnConfirmYes);
-            if (confirmNoButton != null) confirmNoButton.onClick.AddListener(OnConfirmNo);
+            // Confirmation dialog buttons
+            if (confirmYesButton != null) 
+                confirmYesButton.onClick.AddListener(OnConfirmYes);
+            if (confirmNoButton != null) 
+                confirmNoButton.onClick.AddListener(OnConfirmNo);
+        }
 
-            // Initialize panels
-            if (menuPanel != null) menuPanel.SetActive(false);
-            if (savePanel != null) savePanel.SetActive(false);
-            if (skillsPanel != null) skillsPanel.SetActive(false);
-            if (confirmationDialog != null) confirmationDialog.SetActive(false);
+        private void InitializePanels()
+        {
+            // Initialize all panels to hidden state
+            if (menuPanel != null) 
+                menuPanel.SetActive(false);
+            else
+                Debug.LogError("[SaveStationMenu] Menu panel not assigned!");
+                
+            if (savePanel != null) 
+                savePanel.SetActive(false);
+            if (skillsPanel != null) 
+                skillsPanel.SetActive(false);
+            if (confirmationDialog != null) 
+                confirmationDialog.SetActive(false);
         }
 
         private void OnDestroy()
@@ -105,6 +155,10 @@ namespace VisionsForetold.Game.SaveSystem
         /// </summary>
         public void OpenMenu()
         {
+            // Validate before opening
+            if (!ValidateMenuOpen())
+                return;
+
             if (menuPanel != null)
             {
                 menuPanel.SetActive(true);
@@ -116,7 +170,35 @@ namespace VisionsForetold.Game.SaveSystem
                     eventSystem.SetSelectedGameObject(saveButton.gameObject);
                     Debug.Log("[SaveStationMenu] Set Save button as first selected for gamepad");
                 }
+                
+                Debug.Log("[SaveStationMenu] Menu opened successfully");
             }
+        }
+
+        /// <summary>
+        /// Validates that the menu can be opened
+        /// </summary>
+        private bool ValidateMenuOpen()
+        {
+            if (menuPanel == null)
+            {
+                Debug.LogError("[SaveStationMenu] Cannot open menu - Menu panel not assigned!");
+                return false;
+            }
+
+            if (saveManager == null)
+            {
+                Debug.LogError("[SaveStationMenu] Cannot open menu - SaveManager not found! Retrying...");
+                saveManager = SaveManager.Instance;
+                
+                if (saveManager == null)
+                {
+                    Debug.LogError("[SaveStationMenu] SaveManager still not found. Please ensure SaveManager exists in scene.");
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -246,34 +328,74 @@ namespace VisionsForetold.Game.SaveSystem
 
         private void PerformSave()
         {
+            // Validate SaveManager
             if (saveManager == null)
             {
-                ShowSaveStatus("Save Manager not found!", false);
-                return;
+                Debug.LogError("[SaveStationMenu] SaveManager is null, attempting to re-acquire...");
+                saveManager = SaveManager.Instance;
+                
+                if (saveManager == null)
+                {
+                    ShowSaveStatus("Save Manager not found!", false);
+                    return;
+                }
             }
 
             try
             {
+                // Get save parameters
                 int slotIndex = slotDropdown != null ? slotDropdown.value : defaultSaveSlot;
-                string saveName = saveNameInput != null ? saveNameInput.text : "Save";
+                string saveName = saveNameInput != null && !string.IsNullOrWhiteSpace(saveNameInput.text) 
+                    ? saveNameInput.text 
+                    : $"Save {slotIndex + 1}";
+
+                // Validate slot index
+                if (slotIndex < 0)
+                {
+                    ShowSaveStatus("Invalid save slot!", false);
+                    return;
+                }
+
+                Debug.Log($"[SaveStationMenu] Attempting to save to slot {slotIndex} with name '{saveName}'");
 
                 // Check if save already exists
                 if (saveManager.DoesSaveExist(slotIndex))
                 {
+
                     ShowConfirmation($"Overwrite save in slot {slotIndex + 1}?", () =>
                     {
-                        saveManager.SaveGame(slotIndex, saveName);
-                        ShowSaveStatus("Game Saved Successfully!", true);
+                        ExecuteSave(slotIndex, saveName);
                     });
                 }
                 else
                 {
-                    saveManager.SaveGame(slotIndex, saveName);
-                    ShowSaveStatus("Game Saved Successfully!", true);
+                    ExecuteSave(slotIndex, saveName);
                 }
             }
             catch (System.Exception e)
             {
+                Debug.LogError($"[SaveStationMenu] Save failed with exception: {e}");
+                ShowSaveStatus($"Save Failed: {e.Message}", false);
+            }
+        }
+
+        /// <summary>
+        /// Executes the actual save operation
+        /// </summary>
+        private void ExecuteSave(int slotIndex, string saveName)
+        {
+            try
+            {
+                saveManager.SaveGame(slotIndex, saveName);
+                ShowSaveStatus("Game Saved Successfully!", true);
+                Debug.Log($"[SaveStationMenu] Save successful to slot {slotIndex}");
+                
+                // Auto-hide save panel after 2 seconds
+                Invoke(nameof(HideSavePanel), 2f);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[SaveStationMenu] ExecuteSave failed: {e}");
                 ShowSaveStatus($"Save Failed: {e.Message}", false);
             }
         }
