@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-
-
+using UnityEngine.Events;
 
 public class PlayerHUD : MonoBehaviour
 {
@@ -26,6 +25,9 @@ public class PlayerHUD : MonoBehaviour
     [Header("Animation")]
     [SerializeField] private bool smoothTransition = true;
     [SerializeField] private float smoothSpeed = 5f;
+
+    [Header("Events")] 
+    
     
     private float targetHealthFill;
     private float targetXpFill;
