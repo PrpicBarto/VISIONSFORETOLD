@@ -126,6 +126,9 @@ namespace VisionsForetold.Game.SaveSystem
 
                 Debug.Log($"[SaveManager] Saving to slot {slotIndex}: '{currentSaveData.saveName}' in scene '{currentSaveData.currentSceneName}'");
 
+                // Save map info if in gameplay scene
+                SaveMapInfo();
+
                 // Collect player data
                 if (!CollectPlayerData())
                 {
@@ -243,6 +246,29 @@ namespace VisionsForetold.Game.SaveSystem
             }
             
             return success;
+        }
+
+        /// <summary>
+        /// Save map-related information for returning to correct area
+        /// </summary>
+        private void SaveMapInfo()
+        {
+            // Find SceneConnectionManager to get return map info
+            var connectionManager = VisionsForetold.PointNClick.SceneConnectionManager.Instance;
+            if (connectionManager != null)
+            {
+                currentSaveData.lastMapScene = connectionManager.GetReturnMapScene();
+            }
+
+            // Save current scene as the area to return to
+            currentSaveData.returnAreaId = currentSaveData.currentSceneName;
+            
+            // Save save station position if available
+            var saveStation = FindObjectOfType<SaveStation>();
+            if (saveStation != null)
+            {
+                currentSaveData.saveStationPosition = saveStation.transform.position;
+            }
         }
 
         #endregion

@@ -54,6 +54,22 @@ namespace VisionsForetold.PointNClick
         [Tooltip("Automatically create indicator if not assigned")]
         [SerializeField] private bool autoCreateIndicator = true;
 
+        [Header("Gamepad/Keyboard Navigation")]
+        [Tooltip("Enable gamepad and keyboard navigation")]
+        [SerializeField] private bool enableGamepadNavigation = true;
+        
+        [Tooltip("Navigation input delay (seconds)")]
+        [SerializeField] private float navigationDelay = 0.2f;
+        
+        [Tooltip("Auto-select first available area on enable")]
+        [SerializeField] private bool autoSelectFirst = true;
+        
+        [Tooltip("Navigate in grid layout (true) or list (false)")]
+        [SerializeField] private bool gridNavigation = true;
+        
+        [Tooltip("Number of columns in grid (for grid navigation)")]
+        [SerializeField] private int gridColumns = 3;
+
         [Header("Loading Screen (Optional)")]
         [Tooltip("Loading screen to show during scene transitions")]
         [SerializeField] private GameObject loadingScreen;
@@ -86,6 +102,11 @@ namespace VisionsForetold.PointNClick
         private object currentlySelectedClickable; // Can be ClickableArea or ClickableAreaUI
         private CanvasGroup infoPanelCanvasGroup;
         private CanvasGroup tooltipCanvasGroup;
+        
+        // Gamepad navigation
+        private float lastNavigationTime;
+        private int currentSelectionIndex = -1;
+        private object[] allClickableAreas; // Array of all clickable areas for navigation
 
         #region Unity Lifecycle
 
@@ -152,6 +173,15 @@ namespace VisionsForetold.PointNClick
             {
                 closeButton.onClick.AddListener(CloseInfoPanel);
             }
+
+            // Initialize gamepad navigation
+            if (enableGamepadNavigation)
+            {
+                InitializeNavigation();
+            }
+
+            // Check for loaded save data and return to saved area
+            CheckForSaveReturn();
         }
 
         private void Update()
@@ -160,6 +190,12 @@ namespace VisionsForetold.PointNClick
             if (hoverTooltip != null && hoverTooltip.activeSelf)
             {
                 UpdateTooltipPosition();
+            }
+
+            // Handle gamepad/keyboard navigation
+            if (enableGamepadNavigation)
+            {
+                HandleGamepadInput();
             }
         }
 
@@ -223,6 +259,326 @@ namespace VisionsForetold.PointNClick
             selectionIndicator = indicatorObj.AddComponent<SelectionIndicator>();
 
             Debug.Log("[MapController] Auto-created selection indicator");
+        }
+
+        #endregion
+
+        #region Gamepad Navigation
+
+        private void InitializeNavigation()
+        {
+            // Find all clickable areas in the scene
+            var clickableAreas = FindObjectsOfType<ClickableArea>();
+            var clickableAreasUI = FindObjectsOfType<ClickableAreaUI>();
+
+            // Combine into single array
+            allClickableAreas = new object[clickableAreas.Length + clickableAreasUI.Length];
+            
+            int index = 0;
+            foreach (var area in clickableAreas)
+            {
+                allClickableAreas[index++] = area;
+            }
+            foreach (var area in clickableAreasUI)
+            {
+                allClickableAreas[index++] = area;
+            }
+
+            // Auto-select first area if configured
+            if (autoSelectFirst && allClickableAreas.Length > 0)
+            {
+                SelectAreaByIndex(0);
+            }
+        }
+
+        private void HandleGamepadInput()
+        {
+            // Check if enough time has passed since last navigation
+            if (Time.time - lastNavigationTime < navigationDelay) return;
+
+            // No areas to navigate
+            if (allClickableAreas == null || allClickableAreas.Length == 0) return;
+
+            // Handle info panel open/close
+            if (infoPanel != null && infoPanel.activeSelf)
+            {
+                // ESC / B button to close
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    CloseInfoPanel();
+                    lastNavigationTime = Time.time;
+                    return;
+                }
+
+                try
+                {
+                    if (Input.GetButtonDown("Jump"))
+                    {
+                        CloseInfoPanel();
+                        lastNavigationTime = Time.time;
+                        return;
+                    }
+                }
+                catch (System.ArgumentException) { }
+
+                // Enter / Space / A button to enter area
+                if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space))
+                {
+                    OnEnterButtonClicked();
+                    lastNavigationTime = Time.time;
+                    return;
+                }
+
+                try
+                {
+                    if (Input.GetButtonDown("Fire1"))
+                    {
+                        OnEnterButtonClicked();
+                        lastNavigationTime = Time.time;
+                        return;
+                    }
+                }
+                catch (System.ArgumentException) { }
+            }
+
+            // Navigation input - combine axis and keys for both joystick and keyboard
+            float horizontal = 0f;
+            float vertical = 0f;
+
+            try
+            {
+                horizontal = Input.GetAxisRaw("Horizontal");
+                vertical = Input.GetAxisRaw("Vertical");
+            }
+            catch (System.ArgumentException) { }
+
+            // Arrow keys and WASD
+            bool left = horizontal < -0.5f || Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A);
+            bool right = horizontal > 0.5f || Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D);
+            bool up = vertical > 0.5f || Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.W);
+            bool down = vertical < -0.5f || Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S);
+
+            // Navigate
+            if (gridNavigation)
+            {
+                // Grid-based navigation
+                if (left)
+                {
+                    NavigateLeft();
+                    lastNavigationTime = Time.time;
+                }
+                else if (right)
+                {
+                    NavigateRight();
+                    lastNavigationTime = Time.time;
+                }
+                else if (up)
+                {
+                    NavigateUp();
+                    lastNavigationTime = Time.time;
+                }
+                else if (down)
+                {
+                    NavigateDown();
+                    lastNavigationTime = Time.time;
+                }
+            }
+            else
+            {
+                // List-based navigation
+                if (left || up)
+                {
+                    NavigatePrevious();
+                    lastNavigationTime = Time.time;
+                }
+                else if (right || down)
+                {
+                    NavigateNext();
+                    lastNavigationTime = Time.time;
+                }
+            }
+
+            // Enter / Space / A button to select
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter) || Input.GetKeyDown(KeyCode.Space))
+            {
+                SelectCurrentArea();
+                lastNavigationTime = Time.time;
+            }
+
+            try
+            {
+                if (Input.GetButtonDown("Fire1"))
+                {
+                    SelectCurrentArea();
+                    lastNavigationTime = Time.time;
+                }
+            }
+            catch (System.ArgumentException) { }
+
+            // Q/E for quick navigation
+            if (Input.GetKeyDown(KeyCode.Q))
+            {
+                NavigatePrevious();
+                lastNavigationTime = Time.time;
+            }
+            else if (Input.GetKeyDown(KeyCode.E))
+            {
+                NavigateNext();
+                lastNavigationTime = Time.time;
+            }
+
+            // Shoulder buttons for quick navigation (optional)
+            try
+            {
+                if (Input.GetButtonDown("Previous")) // L1/LB
+                {
+                    NavigatePrevious();
+                    lastNavigationTime = Time.time;
+                }
+                else if (Input.GetButtonDown("Next")) // R1/RB
+                {
+                    NavigateNext();
+                    lastNavigationTime = Time.time;
+                }
+            }
+            catch (System.ArgumentException)
+            {
+                // Buttons not configured - Q/E keys already handle this above
+            }
+        }
+
+        private void NavigateLeft()
+        {
+            if (currentSelectionIndex < 0) return;
+            
+            int newIndex = currentSelectionIndex - 1;
+            if (newIndex < 0)
+            {
+                newIndex = allClickableAreas.Length - 1; // Wrap around
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void NavigateRight()
+        {
+            if (currentSelectionIndex < 0) return;
+            
+            int newIndex = currentSelectionIndex + 1;
+            if (newIndex >= allClickableAreas.Length)
+            {
+                newIndex = 0; // Wrap around
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void NavigateUp()
+        {
+            if (currentSelectionIndex < 0 || gridColumns <= 0) return;
+            
+            int newIndex = currentSelectionIndex - gridColumns;
+            if (newIndex < 0)
+            {
+                // Wrap to bottom
+                int remainder = currentSelectionIndex % gridColumns;
+                int lastRow = (allClickableAreas.Length - 1) / gridColumns;
+                newIndex = lastRow * gridColumns + remainder;
+                if (newIndex >= allClickableAreas.Length)
+                {
+                    newIndex -= gridColumns;
+                }
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void NavigateDown()
+        {
+            if (currentSelectionIndex < 0 || gridColumns <= 0) return;
+            
+            int newIndex = currentSelectionIndex + gridColumns;
+            if (newIndex >= allClickableAreas.Length)
+            {
+                // Wrap to top
+                int remainder = currentSelectionIndex % gridColumns;
+                newIndex = remainder;
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void NavigatePrevious()
+        {
+            if (currentSelectionIndex < 0) return;
+            
+            int newIndex = currentSelectionIndex - 1;
+            if (newIndex < 0)
+            {
+                newIndex = allClickableAreas.Length - 1;
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void NavigateNext()
+        {
+            if (currentSelectionIndex < 0) return;
+            
+            int newIndex = currentSelectionIndex + 1;
+            if (newIndex >= allClickableAreas.Length)
+            {
+                newIndex = 0;
+            }
+            
+            SelectAreaByIndex(newIndex);
+        }
+
+        private void SelectAreaByIndex(int index)
+        {
+            if (index < 0 || index >= allClickableAreas.Length) return;
+
+            currentSelectionIndex = index;
+            object clickable = allClickableAreas[index];
+
+            // Get area data
+            AreaData areaData = GetAreaDataFromClickable(clickable);
+            if (areaData == null) return;
+
+            // Update selection indicator
+            if (selectionIndicator != null)
+            {
+                RectTransform targetRect = GetRectTransform(clickable);
+                if (targetRect != null)
+                {
+                    selectionIndicator.ShowSelected(targetRect);
+                }
+            }
+
+            // Update current selection
+            currentlySelectedClickable = clickable;
+            currentlySelectedArea = areaData;
+        }
+
+        private void SelectCurrentArea()
+        {
+            if (currentlySelectedClickable == null || currentlySelectedArea == null) return;
+
+            // Trigger click event
+            OnAreaClicked(currentlySelectedArea, currentlySelectedClickable);
+        }
+
+        private AreaData GetAreaDataFromClickable(object clickable)
+        {
+            if (clickable is ClickableArea ca)
+            {
+                return ca.GetAreaData();
+            }
+            else if (clickable is ClickableAreaUI cui)
+            {
+                return cui.GetAreaData();
+            }
+            return null;
         }
 
         #endregion
@@ -591,6 +947,89 @@ namespace VisionsForetold.PointNClick
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Check if returning from a saved game and select the appropriate area
+        /// </summary>
+        private void CheckForSaveReturn()
+        {
+            // Get save manager
+            var saveManager = VisionsForetold.Game.SaveSystem.SaveManager.Instance;
+            if (saveManager == null) return;
+
+            // Get current save data
+            var saveData = saveManager.GetCurrentSaveData();
+            if (saveData == null) return;
+
+            // Check if we have a return area ID
+            if (string.IsNullOrEmpty(saveData.returnAreaId))
+            {
+                Debug.Log("[MapController] No return area in save data");
+                return;
+            }
+
+            // Find the area with matching scene name
+            var area = FindAreaBySceneName(saveData.returnAreaId);
+            if (area != null)
+            {
+                Debug.Log($"[MapController] Returning to saved area: {area.areaName}");
+                
+                // Auto-select this area
+                StartCoroutine(SelectAreaAfterFrame(area));
+            }
+            else
+            {
+                Debug.LogWarning($"[MapController] Could not find area with scene name: {saveData.returnAreaId}");
+            }
+        }
+
+        /// <summary>
+        /// Find an area by its scene name
+        /// </summary>
+        private AreaData FindAreaBySceneName(string sceneName)
+        {
+            if (allClickableAreas == null) return null;
+
+            foreach (var clickable in allClickableAreas)
+            {
+                AreaData areaData = GetAreaDataFromClickable(clickable);
+                if (areaData != null && areaData.sceneName == sceneName)
+                {
+                    return areaData;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Select area after one frame (ensures initialization is complete)
+        /// </summary>
+        private IEnumerator SelectAreaAfterFrame(AreaData areaData)
+        {
+            yield return null; // Wait one frame
+
+            // Find the clickable for this area
+            for (int i = 0; i < allClickableAreas.Length; i++)
+            {
+                var clickable = allClickableAreas[i];
+                AreaData clickableData = GetAreaDataFromClickable(clickable);
+                
+                if (clickableData == areaData)
+                {
+                    // Select this area
+                    SelectAreaByIndex(i);
+                    
+                    // Optionally open the info panel
+                    if (infoPanel != null && !infoPanel.activeSelf)
+                    {
+                        ShowInfoPanel(areaData);
+                    }
+                    
+                    break;
+                }
+            }
         }
 
         #endregion

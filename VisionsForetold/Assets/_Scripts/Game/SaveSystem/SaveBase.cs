@@ -23,6 +23,11 @@ namespace VisionsForetold.Game.SaveSystem
         public Quaternion playerRotation;
         public string currentSceneName;
 
+        // Map system integration
+        public string lastMapScene = "MapScene"; // Last map scene player was on
+        public string returnAreaId; // AreaData name/ID to return to on map
+        public Vector3 saveStationPosition; // Position of save station used
+
         // Skills (integrated with SkillSystem)
         public SkillSaveData skills;
 
@@ -33,6 +38,8 @@ namespace VisionsForetold.Game.SaveSystem
             saveDate = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             playtime = 0f;
             skills = new SkillSaveData();
+            lastMapScene = "MapScene";
+            returnAreaId = "";
         }
     }
 
