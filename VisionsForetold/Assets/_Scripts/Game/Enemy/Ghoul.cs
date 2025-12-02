@@ -97,6 +97,7 @@ namespace _Scripts.Game.Enemy
                 lastAttackTime = Time.time; // Reset cooldown
                 Debug.Log($"Ghoul ({ghoulType}) bit player for {biteDamage} damage!");
             }
+            
         }
     }
 }

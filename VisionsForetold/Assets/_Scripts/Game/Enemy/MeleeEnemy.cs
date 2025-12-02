@@ -68,6 +68,10 @@ public class MeleeEnemy : MonoBehaviour
         {
             playerHealth.TakeDamage(damage);
             Debug.Log($"{gameObject.name} attacked player for {damage} damage!");
+            if (DamageNumberManager.Instance != null)
+            {
+                DamageNumberManager.Instance.ShowDamage(player.position + Vector3.up * 2f, damage);
+            }
         }
     }
 }

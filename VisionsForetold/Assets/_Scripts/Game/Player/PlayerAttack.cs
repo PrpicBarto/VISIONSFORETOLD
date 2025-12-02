@@ -307,7 +307,11 @@ public class PlayerAttack : MonoBehaviour
             if (targetHealth != null)
             {
                 targetHealth.TakeDamage(damage);
-                
+
+                if (DamageNumberManager.Instance != null)
+                {
+                    DamageNumberManager.Instance.ShowDamage(hit.point + Vector3.up, damage);
+                }
                 // Visual feedback for final hit
                 if (isFinalHit)
                 {
@@ -340,6 +344,7 @@ public class PlayerAttack : MonoBehaviour
             Invoke(nameof(ResetCombo), comboResetDelay);
             comboResetInProgress = true;
         }
+        
     }
 
     private void ResetCombo()

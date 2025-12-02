@@ -87,7 +87,10 @@ public class RangedEnemy : MonoBehaviour
             projDamage.Initialize(damage, gameObject, "Player");
             projDamage.SetProjectileType(ProjectileDamage.ProjectileType.EnemyProjectile);
         }
-        
+        if (DamageNumberManager.Instance != null)
+        {
+            DamageNumberManager.Instance.ShowDamage(player.position + Vector3.up * 2f, damage);
+        }
         Debug.Log($"{gameObject.name} shot projectile!");
     }
 
