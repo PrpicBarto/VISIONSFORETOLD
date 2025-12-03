@@ -18,4 +18,4 @@ MonoBehaviour:
     lockedAreas: []
     returnMapScene: PointNClick
     autoUnlock: 0
-  defaultMapScene: MapScene
+  defaultMapScene: PointNClick

@@ -31,7 +31,8 @@ namespace VisionsForetold.Game.SaveSystem
         [SerializeField] private TMP_Text skillCostText;
         [SerializeField] private Button unlockButton;
         [SerializeField] private Button levelUpButton;
-        [SerializeField] private Button backButton;
+        [SerializeField] private Button backButton; // Back from skill detail to skill list
+        [SerializeField] private Button closeSkillTreeButton; // Close entire skill tree and return to save station menu
         [SerializeField] private Image skillIcon;
 
         [Header("Category Filters")]
@@ -50,6 +51,9 @@ namespace VisionsForetold.Game.SaveSystem
         private List<SkillButtonUI> skillButtons = new List<SkillButtonUI>();
         private Skill selectedSkill;
         private SkillCategory? currentFilter = null; // null = show all skills by default
+
+        // Event to notify when skill tree is closed
+        public event System.Action OnSkillTreeClosed;
 
         private class SkillButtonUI
         {
@@ -82,6 +86,8 @@ namespace VisionsForetold.Game.SaveSystem
                 levelUpButton.onClick.AddListener(LevelUpSelectedSkill);
             if (backButton != null)
                 backButton.onClick.AddListener(HideSkillDetails);
+            if (closeSkillTreeButton != null)
+                closeSkillTreeButton.onClick.AddListener(CloseSkillTree);
 
             // Hide detail panel initially
             if (skillDetailPanel != null)
@@ -113,12 +119,18 @@ namespace VisionsForetold.Game.SaveSystem
 
         private void Update()
         {
-            // Allow Escape key to go back from skill details
+            // Allow Escape key to go back
             if (Input.GetKeyDown(KeyCode.Escape))
             {
+                // If skill detail panel is open, close it first
                 if (skillDetailPanel != null && skillDetailPanel.activeSelf)
                 {
                     HideSkillDetails();
+                }
+                // Otherwise, close the entire skill tree
+                else
+                {
+                    CloseSkillTree();
                 }
             }
         }
@@ -424,6 +436,21 @@ namespace VisionsForetold.Game.SaveSystem
             }
 
             selectedSkill = null;
+        }
+
+        /// <summary>
+        /// Close the entire skill tree and notify listeners (e.g., SaveStationMenu)
+        /// </summary>
+        public void CloseSkillTree()
+        {
+            // Close detail panel if open
+            if (skillDetailPanel != null && skillDetailPanel.activeSelf)
+            {
+                HideSkillDetails();
+            }
+
+            // Notify listeners that skill tree is being closed
+            OnSkillTreeClosed?.Invoke();
         }
 
         /// <summary>

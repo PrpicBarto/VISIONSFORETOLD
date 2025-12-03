@@ -29,6 +29,8 @@ namespace VisionsForetold.Game.SaveSystem
         [Header("Skills Panel")]
         [SerializeField] private GameObject skillsPanel;
         [SerializeField] private Button closeSkillsButton;
+        [SerializeField] private SkillTreeUI skillTreeUI; // Reference to SkillTreeUI component (List-based)
+        [SerializeField] private SkillTreeUI_GridBased skillTreeUIGrid; // Reference to SkillTreeUI_GridBased component (Grid-based)
         
         [Header("Confirmation Dialog")]
         [SerializeField] private GameObject confirmationDialog;
@@ -60,6 +62,25 @@ namespace VisionsForetold.Game.SaveSystem
             
             // Initialize panels
             InitializePanels();
+
+            // Get SkillTreeUI reference if not assigned (try both list and grid versions)
+            if (skillTreeUI == null && skillTreeUIGrid == null && skillsPanel != null)
+            {
+                skillTreeUI = skillsPanel.GetComponent<SkillTreeUI>();
+                skillTreeUIGrid = skillsPanel.GetComponent<SkillTreeUI_GridBased>();
+            }
+
+            // Subscribe to SkillTreeUI close event (list-based)
+            if (skillTreeUI != null)
+            {
+                skillTreeUI.OnSkillTreeClosed += OnCloseSkillsClicked;
+            }
+
+            // Subscribe to SkillTreeUI_GridBased close event (grid-based)
+            if (skillTreeUIGrid != null)
+            {
+                skillTreeUIGrid.OnSkillTreeClosed += OnCloseSkillsClicked;
+            }
         }
 
         private void Start()
@@ -144,6 +165,18 @@ namespace VisionsForetold.Game.SaveSystem
             if (closeSkillsButton != null) closeSkillsButton.onClick.RemoveListener(OnCloseSkillsClicked);
             if (confirmYesButton != null) confirmYesButton.onClick.RemoveListener(OnConfirmYes);
             if (confirmNoButton != null) confirmNoButton.onClick.RemoveListener(OnConfirmNo);
+
+            // Unsubscribe from SkillTreeUI event (list-based)
+            if (skillTreeUI != null)
+            {
+                skillTreeUI.OnSkillTreeClosed -= OnCloseSkillsClicked;
+            }
+
+            // Unsubscribe from SkillTreeUI_GridBased event (grid-based)
+            if (skillTreeUIGrid != null)
+            {
+                skillTreeUIGrid.OnSkillTreeClosed -= OnCloseSkillsClicked;
+            }
         }
 
         #endregion
@@ -420,7 +453,16 @@ namespace VisionsForetold.Game.SaveSystem
             if (skillsPanel != null)
             {
                 skillsPanel.SetActive(true);
-                LoadSkillsData();
+
+                // Refresh skill tree UI (try both list and grid versions)
+                if (skillTreeUI != null)
+                {
+                    skillTreeUI.RefreshUI();
+                }
+                else if (skillTreeUIGrid != null)
+                {
+                    skillTreeUIGrid.RefreshUI();
+                }
 
                 // Set first selected for gamepad
                 SetGamepadSelection(closeSkillsButton);
@@ -436,20 +478,6 @@ namespace VisionsForetold.Game.SaveSystem
 
             // Return to main menu
             SetGamepadSelection(saveButton);
-        }
-
-        private void LoadSkillsData()
-        {
-            if (saveManager == null)
-                return;
-
-            SaveData currentSave = saveManager.GetCurrentSaveData();
-            if (currentSave != null && currentSave.skills != null)
-            {
-                // TODO: Populate skills UI with current skills data
-                // This will be expanded when you implement your skill tree system
-                Debug.Log($"[SaveStationMenu] Loaded skills - Level: {currentSave.skills.level}, Points: {currentSave.skills.skillPoints}");
-            }
         }
 
         #endregion

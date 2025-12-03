@@ -86,4 +86,23 @@ public class PlayerXP : MonoBehaviour
     public int CurrentXP => currentXP;
     public int Level => currentLevel;
     public int XPToNextLevel => xpToNextLevel;
+
+    /// <summary>
+    /// Load XP data from save (called by SaveManager/PlayerSpawnManager)
+    /// </summary>
+    public void LoadXPData(int xp, int level, int xpToNext)
+    {
+        currentXP = xp;
+        currentLevel = level;
+        xpToNextLevel = xpToNext;
+
+        // Recalculate XP requirement (in case formula changed)
+        CalculateXPToNextLevel();
+
+        // Trigger events to update UI
+        OnXPChanged?.Invoke(currentXP, xpToNextLevel);
+        OnLevelUp?.Invoke(currentLevel);
+
+        Debug.Log($"[PlayerXP] Loaded XP data - Level: {currentLevel}, XP: {currentXP}/{xpToNextLevel}");
+    }
 }

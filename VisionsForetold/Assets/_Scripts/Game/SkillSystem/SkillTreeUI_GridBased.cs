@@ -33,6 +33,8 @@ namespace VisionsForetold.Game.SaveSystem
         [SerializeField] private Image previewIcon;
         [SerializeField] private Button actionButton; // Unlock or Level Up
         [SerializeField] private TMP_Text actionButtonText;
+        [SerializeField] private Button backButton; // Back from preview to grid
+        [SerializeField] private Button closeSkillTreeButton; // Close entire skill tree and return to save station
 
         [Header("Category Tabs")]
         [SerializeField] private Button allSkillsTab;
@@ -63,6 +65,9 @@ namespace VisionsForetold.Game.SaveSystem
         private SkillCategory? currentFilter = null;
         private EventSystem eventSystem;
         private float lastNavigationTime;
+
+        // Event to notify when skill tree is closed
+        public event System.Action OnSkillTreeClosed;
 
         private class SkillCard
         {
@@ -148,6 +153,12 @@ namespace VisionsForetold.Game.SaveSystem
         {
             if (actionButton != null)
                 actionButton.onClick.AddListener(PerformSkillAction);
+            
+            if (backButton != null)
+                backButton.onClick.AddListener(HidePreview);
+            
+            if (closeSkillTreeButton != null)
+                closeSkillTreeButton.onClick.AddListener(CloseSkillTree);
         }
 
         private void SubscribeToEvents()
@@ -194,20 +205,38 @@ namespace VisionsForetold.Game.SaveSystem
             }
 
             // Action button (A/Cross) is handled by UI Button
-            // Cancel button (B/Circle)
-            if (Input.GetButtonDown("Jump")) // Can use this for back
+            // Cancel button (B/Circle) for back navigation
+            if (Input.GetButtonDown("Jump")) // B/Circle button
             {
-                HidePreview();
+                // If preview panel is open, close it
+                if (previewPanel != null && previewPanel.activeSelf)
+                {
+                    HidePreview();
+                }
+                // Otherwise, close the entire skill tree
+                else
+                {
+                    CloseSkillTree();
+                }
                 lastNavigationTime = Time.time;
             }
         }
 
         private void HandleKeyboardInput()
         {
-            // ESC to close preview
+            // ESC to go back
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                HidePreview();
+                // If preview panel is open, close it first
+                if (previewPanel != null && previewPanel.activeSelf)
+                {
+                    HidePreview();
+                }
+                // Otherwise, close the entire skill tree
+                else
+                {
+                    CloseSkillTree();
+                }
             }
 
             // Tab navigation
@@ -552,6 +581,21 @@ namespace VisionsForetold.Game.SaveSystem
 
             selectedCard = null;
             selectedSkill = null;
+        }
+
+        /// <summary>
+        /// Close the entire skill tree and notify listeners (e.g., SaveStationMenu)
+        /// </summary>
+        public void CloseSkillTree()
+        {
+            // Close preview panel if open
+            if (previewPanel != null && previewPanel.activeSelf)
+            {
+                HidePreview();
+            }
+
+            // Notify listeners that skill tree is being closed
+            OnSkillTreeClosed?.Invoke();
         }
 
         private void UpdateActionButton(Skill skill, SkillSaveData skillData)
