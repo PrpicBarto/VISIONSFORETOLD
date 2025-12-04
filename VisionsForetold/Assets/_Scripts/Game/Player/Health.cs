@@ -163,6 +163,16 @@ public class Health : MonoBehaviour
     /// <param name="newHealth">New health value</param>
     public void SetHealth(int newHealth)
     {
+        SetHealth(newHealth, true);
+    }
+
+    /// <summary>
+    /// Sets health to a specific value with option to check for death
+    /// </summary>
+    /// <param name="newHealth">New health value</param>
+    /// <param name="checkDeath">Whether to check for death (false when loading from save)</param>
+    public void SetHealth(int newHealth, bool checkDeath)
+    {
         newHealth = Mathf.Clamp(newHealth, 0, maxHealth);
 
         if (newHealth != currentHealth)
@@ -181,7 +191,7 @@ public class Health : MonoBehaviour
                 OnDamageTaken?.Invoke(-difference);
             }
 
-            if (currentHealth <= 0 && !isDead)
+            if (checkDeath && currentHealth <= 0 && !isDead)
             {
                 Die();
             }

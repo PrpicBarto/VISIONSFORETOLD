@@ -12,10 +12,11 @@ namespace VisionsForetold.Game.SaveSystem
         public static PlayerSpawnManager Instance { get; private set; }
 
         [Header("Spawn Settings")]
-        [SerializeField] private float spawnDelay = 0.1f; // Small delay to ensure scene is loaded
+        [SerializeField] private float spawnDelay = 0.2f; // Increased delay to ensure Health.Start() completes
         [SerializeField] private bool debugMode = true;
 
         private bool hasSpawned = false;
+        private bool isRestoringHealth = false;
 
         #region Unity Lifecycle
 
@@ -126,10 +127,15 @@ namespace VisionsForetold.Game.SaveSystem
         /// </summary>
         private void ApplyPlayerStats(GameObject player, SaveData saveData)
         {
+            isRestoringHealth = true; // Flag to prevent issues
+            
             // Apply health - CRITICAL: Do this carefully to avoid death trigger
             Health playerHealth = player.GetComponent<Health>();
             if (playerHealth != null)
             {
+                if (debugMode)
+                    Debug.Log($"[PlayerSpawnManager] Current health before restore: {playerHealth.CurrentHealth}/{playerHealth.MaxHealth}, IsDead: {playerHealth.IsDead}");
+
                 // IMPORTANT: Reset death state first!
                 if (playerHealth.IsDead)
                 {
@@ -151,7 +157,16 @@ namespace VisionsForetold.Game.SaveSystem
                         Debug.LogWarning($"[PlayerSpawnManager] Saved health was {saveData.playerHealth}, restoring to full health instead");
                 }
                 
-                playerHealth.SetHealth(healthToRestore);
+                // CRITICAL: Use SetHealth with checkDeath=false to bypass death trigger when loading
+                if (healthToRestore > 0)
+                {
+                    playerHealth.SetHealth(healthToRestore, false); // Don't check death when restoring from save
+                }
+                else
+                {
+                    // Emergency fallback
+                    playerHealth.ResetHealth();
+                }
                 
                 if (debugMode)
                     Debug.Log($"[PlayerSpawnManager] Restored health: {healthToRestore}/{saveData.playerMaxHealth}");
@@ -179,6 +194,8 @@ namespace VisionsForetold.Game.SaveSystem
 
             // Ensure player components are enabled (in case they were disabled)
             EnsurePlayerComponentsEnabled(player);
+            
+            isRestoringHealth = false;
         }
 
         /// <summary>

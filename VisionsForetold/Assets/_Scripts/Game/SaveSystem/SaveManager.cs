@@ -384,7 +384,8 @@ namespace VisionsForetold.Game.SaveSystem
                         Debug.LogWarning($"[SaveManager] Saved health was {currentSaveData.playerHealth}, restoring to full health instead");
                     }
                     
-                    playerHealth.SetHealth(healthToRestore);
+                    // Use SetHealth with checkDeath=false to prevent death trigger during load
+                    playerHealth.SetHealth(healthToRestore, false);
                     
                     Debug.Log($"[SaveManager] Restored health: {healthToRestore}/{currentSaveData.playerMaxHealth}");
                 }
@@ -500,6 +501,43 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 File.Delete(filePath);
                 Debug.Log($"[SaveManager] Deleted save from slot {slotIndex}");
+            }
+        }
+
+        /// <summary>
+        /// Deletes ALL save files (use with caution!)
+        /// </summary>
+        public void DeleteAllSaves()
+        {
+            for (int i = 0; i < maxSaveSlots; i++)
+            {
+                DeleteSave(i);
+            }
+            
+            // Also clear current save data
+            currentSaveData = null;
+            
+            Debug.Log("[SaveManager] Deleted all save files");
+        }
+
+        /// <summary>
+        /// Opens the save directory in file explorer (Editor only)
+        /// </summary>
+        [ContextMenu("Open Save Directory")]
+        public void OpenSaveDirectory()
+        {
+            if (Directory.Exists(saveDirectory))
+            {
+                #if UNITY_EDITOR
+                UnityEditor.EditorUtility.RevealInFinder(saveDirectory);
+                #else
+                System.Diagnostics.Process.Start(saveDirectory);
+                #endif
+                Debug.Log($"[SaveManager] Opened save directory: {saveDirectory}");
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveManager] Save directory doesn't exist: {saveDirectory}");
             }
         }
 
