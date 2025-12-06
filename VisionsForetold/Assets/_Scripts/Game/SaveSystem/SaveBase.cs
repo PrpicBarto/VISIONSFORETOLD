@@ -23,6 +23,11 @@ namespace VisionsForetold.Game.SaveSystem
         public Quaternion playerRotation;
         public string currentSceneName;
 
+        // XP System (PlayerXP component)
+        public int currentXP;
+        public int currentLevel;
+        public int xpToNextLevel;
+
         // Map system integration
         public string lastMapScene = "MapScene"; // Last map scene player was on
         public string returnAreaId; // AreaData name/ID to return to on map

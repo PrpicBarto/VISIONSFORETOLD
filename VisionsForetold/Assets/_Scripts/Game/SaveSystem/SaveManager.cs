@@ -223,6 +223,21 @@ namespace VisionsForetold.Game.SaveSystem
                     success = false;
                 }
 
+                // Save XP and level (PlayerXP component)
+                PlayerXP playerXP = player.GetComponent<PlayerXP>();
+                if (playerXP != null)
+                {
+                    currentSaveData.currentXP = playerXP.CurrentXP;
+                    currentSaveData.currentLevel = playerXP.Level;
+                    currentSaveData.xpToNextLevel = playerXP.XPToNextLevel;
+                    Debug.Log($"[SaveManager] Saved XP: {currentSaveData.currentXP} | Level: {currentSaveData.currentLevel}");
+                }
+                else
+                {
+                    Debug.LogWarning("[SaveManager] PlayerXP component not found - XP not saved");
+                    success = false;
+                }
+
                 // Save skills from SkillManager
                 var skillManager = VisionsForetold.Game.SkillSystem.SkillManager.Instance;
                 if (skillManager != null)
@@ -336,15 +351,51 @@ namespace VisionsForetold.Game.SaveSystem
             if (player != null)
             {
                 // Apply position and rotation
-                player.transform.position = currentSaveData.playerPosition;
+                // Use saveStationPosition if available (returning from map), otherwise use playerPosition
+                Vector3 spawnPosition = currentSaveData.saveStationPosition != Vector3.zero 
+                    ? currentSaveData.saveStationPosition 
+                    : currentSaveData.playerPosition;
+                    
+                player.transform.position = spawnPosition;
                 player.transform.rotation = currentSaveData.playerRotation;
+                
+                Debug.Log($"[SaveManager] Respawned player at: {spawnPosition}");
 
-                // Apply health
+                // Apply health - CRITICAL: Reset death state first!
                 Health playerHealth = player.GetComponent<Health>();
                 if (playerHealth != null)
                 {
+                    // Reset death state if player was dead
+                    if (playerHealth.IsDead)
+                    {
+                        playerHealth.ResetHealth();
+                        Debug.Log("[SaveManager] Reset death state before applying saved health");
+                    }
+
+                    // Set max health first
                     playerHealth.SetMaxHealth(currentSaveData.playerMaxHealth, false);
-                    playerHealth.SetHealth(currentSaveData.playerHealth);
+                    
+                    // Then set current health
+                    // Only enforce full health if saved health was invalid (0 or negative)
+                    int healthToRestore = currentSaveData.playerHealth;
+                    if (healthToRestore <= 0)
+                    {
+                        healthToRestore = currentSaveData.playerMaxHealth; // Restore to full if saved health was invalid
+                        Debug.LogWarning($"[SaveManager] Saved health was {currentSaveData.playerHealth}, restoring to full health instead");
+                    }
+                    
+                    // Use SetHealth with checkDeath=false to prevent death trigger during load
+                    playerHealth.SetHealth(healthToRestore, false);
+                    
+                    Debug.Log($"[SaveManager] Restored health: {healthToRestore}/{currentSaveData.playerMaxHealth}");
+                }
+
+                // Apply XP and Level (PlayerXP component)
+                PlayerXP playerXP = player.GetComponent<PlayerXP>();
+                if (playerXP != null && currentSaveData.currentLevel > 0)
+                {
+                    playerXP.LoadXPData(currentSaveData.currentXP, currentSaveData.currentLevel, currentSaveData.xpToNextLevel);
+                    Debug.Log($"[SaveManager] Loaded XP: {currentSaveData.currentXP} | Level: {currentSaveData.currentLevel}");
                 }
 
                 // Apply skills from SkillManager
@@ -359,7 +410,44 @@ namespace VisionsForetold.Game.SaveSystem
                     Debug.LogWarning("[SaveManager] SkillManager not found - skills not loaded");
                 }
 
+                // Ensure all player components are enabled
+                EnsurePlayerComponentsEnabled(player);
+
                 // Apply other data as needed
+            }
+            else
+            {
+                Debug.LogWarning("[SaveManager] Player not found in scene! Cannot apply player data.");
+            }
+        }
+
+        /// <summary>
+        /// Ensures all player components are enabled after loading
+        /// </summary>
+        private void EnsurePlayerComponentsEnabled(GameObject player)
+        {
+            // Re-enable PlayerInput
+            var playerInput = player.GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            if (playerInput != null && !playerInput.enabled)
+            {
+                playerInput.enabled = true;
+                Debug.Log("[SaveManager] Re-enabled PlayerInput");
+            }
+
+            // Re-enable PlayerMovement
+            PlayerMovement movement = player.GetComponent<PlayerMovement>();
+            if (movement != null && !movement.enabled)
+            {
+                movement.enabled = true;
+                Debug.Log("[SaveManager] Re-enabled PlayerMovement");
+            }
+
+            // Re-enable PlayerAttack
+            PlayerAttack attack = player.GetComponent<PlayerAttack>();
+            if (attack != null && !attack.enabled)
+            {
+                attack.enabled = true;
+                Debug.Log("[SaveManager] Re-enabled PlayerAttack");
             }
         }
 
@@ -413,6 +501,43 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 File.Delete(filePath);
                 Debug.Log($"[SaveManager] Deleted save from slot {slotIndex}");
+            }
+        }
+
+        /// <summary>
+        /// Deletes ALL save files (use with caution!)
+        /// </summary>
+        public void DeleteAllSaves()
+        {
+            for (int i = 0; i < maxSaveSlots; i++)
+            {
+                DeleteSave(i);
+            }
+            
+            // Also clear current save data
+            currentSaveData = null;
+            
+            Debug.Log("[SaveManager] Deleted all save files");
+        }
+
+        /// <summary>
+        /// Opens the save directory in file explorer (Editor only)
+        /// </summary>
+        [ContextMenu("Open Save Directory")]
+        public void OpenSaveDirectory()
+        {
+            if (Directory.Exists(saveDirectory))
+            {
+                #if UNITY_EDITOR
+                UnityEditor.EditorUtility.RevealInFinder(saveDirectory);
+                #else
+                System.Diagnostics.Process.Start(saveDirectory);
+                #endif
+                Debug.Log($"[SaveManager] Opened save directory: {saveDirectory}");
+            }
+            else
+            {
+                Debug.LogWarning($"[SaveManager] Save directory doesn't exist: {saveDirectory}");
             }
         }
 
