@@ -33,22 +33,22 @@ Material:
     - _FogMinDensity: 0.3
     - _MaxDistance: 40
     - _MemoryCount: 1
-    - _PulseAge: 0.73832905
+    - _PulseAge: 0
     - _PulseDistance: 0
     - _PulseFadeDelay: 0.5
     - _PulseFadeSpeed: 2
-    - _PulseIntensity: 1
-    - _PulseRadius: 14.766586
+    - _PulseIntensity: 0
+    - _PulseRadius: 0
     - _PulseWidth: 0.1
     - _RevealCount: 5
-    - _RevealFade: 0
+    - _RevealFade: 0.9999169
     - _RevealRadius: 15
     - _VerticalInfluence: 0.8
     m_Colors:
     - _DarkColor: {r: 0.29999998, g: 0.29999998, b: 0.34999996, a: 1}
     - _EdgeColor: {r: 0.3, g: 0.6, b: 1, a: 1}
     - _FogColor: {r: 0, g: 0, b: 0, a: 1}
-    - _PulseCenter: {r: 0.1525182, g: 0, b: 9.716309, a: 0}
+    - _PulseCenter: {r: -8.742351, g: -0.00000008319435, b: 0.2247372, a: 0}
     - _PulseOrigin: {r: 0, g: 0, b: 0, a: 0}
     - _RevealColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
