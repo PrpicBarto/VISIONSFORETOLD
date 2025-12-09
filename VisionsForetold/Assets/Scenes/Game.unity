@@ -1930,7 +1930,7 @@ Camera:
   far clip plane: 1000
   field of view: 60.000004
   orthographic: 1
-  orthographic size: 5
+  orthographic size: 7.5
   m_Depth: -1
   m_CullingMask:
     serializedVersion: 2
@@ -4594,8 +4594,8 @@ MonoBehaviour:
   groundLevel: 1
   autoDetectGroundLevel: 1
   fogPlaneHeightOffset: 0.1
-  verticalPlaneCount: 5
-  verticalCoverageHeight: 2
+  verticalPlaneCount: 8
+  verticalCoverageHeight: 4
   useMultiplePlanes: 1
   pulseSpeed: 20
   maxPulseRadius: 20
@@ -11552,7 +11552,7 @@ MonoBehaviour:
     CustomLookAtTarget: 1
   Lens:
     FieldOfView: 60.000004
-    OrthographicSize: 5
+    OrthographicSize: 7.5
     NearClipPlane: 0.3
     FarClipPlane: 1000
     Dutch: 0
