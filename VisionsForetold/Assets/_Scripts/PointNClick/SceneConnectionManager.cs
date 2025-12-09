@@ -81,7 +81,9 @@ namespace VisionsForetold.PointNClick
             // Handle return to map input
             if (showReturnUI)
             {
-                if (Input.GetKeyDown(returnKey) || Input.GetButtonDown(returnButton))
+                // Only use keyboard input to avoid Input Manager errors
+                // Gamepad input should be handled through the new Input System
+                if (Input.GetKeyDown(returnKey))
                 {
                     ReturnToMap();
                 }
@@ -246,7 +248,7 @@ namespace VisionsForetold.PointNClick
             };
             style.normal.textColor = Color.white;
 
-            string helpText = $"Press [{returnKey}] or [{returnButton}] to return to map";
+            string helpText = $"Press [{returnKey}] to return to map";
             Vector2 size = style.CalcSize(new GUIContent(helpText));
             
             GUI.Box(new Rect(10, Screen.height - 50, size.x + 20, 40), helpText, style);
