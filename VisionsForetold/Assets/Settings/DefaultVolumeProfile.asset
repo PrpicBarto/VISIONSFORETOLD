@@ -252,6 +252,64 @@ MonoBehaviour:
   m_Name: VolumeComponentSupportedEverywhere
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Editor.Tests:UnityEngine.Rendering.Tests:VolumeComponentEditorSupportedOnTests/VolumeComponentSupportedEverywhere
   active: 1
+--- !u!114 &-5306468628088836826
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2171ccdbe132b104ab9f33031855f21a, type: 3}
+  m_Name: SinCityVolumeComponent
+  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.PostProcessing.SinCityVolumeComponent
+  active: 1
+  enableEffect:
+    m_OverrideState: 1
+    m_Value: 1
+  contrast:
+    m_OverrideState: 1
+    m_Value: 1.8
+  brightness:
+    m_OverrideState: 1
+    m_Value: 0
+  blackLevel:
+    m_OverrideState: 1
+    m_Value: 0.15
+  whiteLevel:
+    m_OverrideState: 1
+    m_Value: 0.85
+  enableColorSplash:
+    m_OverrideState: 1
+    m_Value: 1
+  splashColor:
+    m_OverrideState: 1
+    m_Value: {r: 1, g: 0, b: 0, a: 1}
+  colorTolerance:
+    m_OverrideState: 1
+    m_Value: 0.3
+  colorIntensity:
+    m_OverrideState: 1
+    m_Value: 1.5
+  grainIntensity:
+    m_OverrideState: 1
+    m_Value: 0.05
+  grainSize:
+    m_OverrideState: 1
+    m_Value: 2
+  edgeIntensity:
+    m_OverrideState: 1
+    m_Value: 0.8
+  edgeThreshold:
+    m_OverrideState: 1
+    m_Value: 0.1
+  vignetteIntensity:
+    m_OverrideState: 1
+    m_Value: 0.3
+  vignetteSize:
+    m_OverrideState: 1
+    m_Value: 0.8
 --- !u!114 &-5139089513906902183
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -465,7 +523,7 @@ MonoBehaviour:
   - {fileID: -6288072647309666549}
   - {fileID: 7518938298396184218}
   - {fileID: -1410297666881709256}
-  - {fileID: 7648051397093283466}
+  - {fileID: -5306468628088836826}
 --- !u!114 &853819529557874667
 MonoBehaviour:
   m_ObjectHideFlags: 3
