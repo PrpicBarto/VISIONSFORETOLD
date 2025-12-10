@@ -527,7 +527,6 @@ MonoBehaviour:
   unlockOnCompletion: 1
   showReturnUI: 1
   returnKey: 109
-  returnButton: Start
   showDebug: 1
 --- !u!4 &37468659
 Transform:
@@ -579,7 +578,6 @@ MonoBehaviour:
   unlockOnCompletion: 1
   showReturnUI: 1
   returnKey: 109
-  returnButton: Start
   showDebug: 1
 --- !u!4 &46769866
 Transform:
@@ -12068,6 +12066,7 @@ GameObject:
   - component: {fileID: 1835896061}
   - component: {fileID: 1835896060}
   - component: {fileID: 1835896062}
+  - component: {fileID: 1835896063}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -12164,6 +12163,37 @@ MonoBehaviour:
     Time: 0
     Smoothing: 0
     IgnoreY: 1
+--- !u!114 &1835896063
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1835896058}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 81bad2fe692fff745b13c5cf291164bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AimOffsetCamera
+  playerTransform: {fileID: 0}
+  aimTarget: {fileID: 0}
+  virtualCamera: {fileID: 0}
+  playerMovement: {fileID: 0}
+  maxCameraOffset: 3
+  cameraSmoothSpeed: 5
+  minAimDistance: 1
+  screenOffsetPercentage: 0.3
+  verticalAimOffset: 0.5
+  useVerticalOffset: 1
+  deadZone: 0.1
+  enableAimZoom: 0
+  aimedFOV: 50
+  normalFOV: 60
+  zoomDistanceThreshold: 8
+  enableLookAhead: 1
+  lookAheadDistance: 5
+  showDebugGizmos: 1
+  showDebugUI: 0
 --- !u!1 &1851157435
 GameObject:
   m_ObjectHideFlags: 0
@@ -13909,7 +13939,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 508934641608996833, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3497763963536032824, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
       propertyPath: m_LocalPosition.x
@@ -14254,6 +14284,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4579098273727657487, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
+      propertyPath: attackRange
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4579098273727657487, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       propertyPath: attackModeText
       value: 
       objectReference: {fileID: 534096375}
@@ -14280,6 +14314,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3284537483637963828, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       insertIndex: 3
       addedObject: {fileID: 5342806458869551354}
+    - targetCorrespondingSourceObject: {fileID: 3284537483637963828, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5342806458869551361}
   m_SourcePrefab: {fileID: 100100000, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
 --- !u!198 &5076276201778502456
 ParticleSystem:
@@ -19090,6 +19127,41 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9de91153d41929142b63a46b434e195d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAttackSkillExtension
+--- !u!114 &5342806458869551361
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 789652945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c3a3c9426cbc7404f8639a5cda8735a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AimIndicator
+  aimTarget: {fileID: 0}
+  playerMovement: {fileID: 0}
+  playerTransform: {fileID: 0}
+  indicatorPrefab: {fileID: 0}
+  indicatorColor: {r: 1, g: 1, b: 1, a: 0.7}
+  indicatorSize: 0.5
+  hoverHeight: 0.1
+  showIndicator: 1
+  hideWhenIdle: 1
+  minAimDistance: 1
+  fadeDistance: 0.5
+  rotateIndicator: 1
+  rotationSpeed: 90
+  pulseIndicator: 1
+  pulseSpeed: 2
+  pulseAmount: 0.2
+  showAimLine: 0
+  lineColor: {r: 1, g: 0, b: 0, a: 0.3}
+  lineWidth: 0.05
+  useAttackModeColors: 1
+  meleeColor: {r: 1, g: 0, b: 0, a: 1}
+  rangedColor: {r: 0, g: 1, b: 0, a: 1}
+  spellColor: {r: 0, g: 1, b: 1, a: 1}
 --- !u!4 &5499582506850255805
 Transform:
   m_ObjectHideFlags: 0
@@ -19220,7 +19292,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6769749428951730916, guid: 17caca8199458694abc4afc3a93451af, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 7668746516936973033, guid: 17caca8199458694abc4afc3a93451af, type: 3}
       propertyPath: m_LocalPosition.x

@@ -153,8 +153,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void InitializeAimTarget()
     {
-        if (aimTarget != null)
+        // Create aim target if it doesn't exist
+        if (aimTarget == null)
         {
+            GameObject aimObj = new GameObject("AimTarget");
+            aimTarget = aimObj.transform;
+            aimTarget.SetParent(transform);
+            aimTarget.localPosition = new Vector3(0, 0, mouseSensitivity);
+            Debug.Log("[PlayerMovement] Created AimTarget automatically");
+        }
+        else
+        {
+            // Just set initial position if aim target already exists
             aimTarget.position = transform.position + transform.forward * mouseSensitivity;
         }
     }

@@ -2,6 +2,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using System.Collections.Generic;
 
 public class PlayerAttack : MonoBehaviour
 {
@@ -26,6 +27,16 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float attackCooldown = 1.0f;
     [SerializeField] private AttackMode currentAttackMode = AttackMode.Melee;
     [SerializeField] private TMP_Text attackModeText;
+
+    [Header("Melee Attack Settings")]
+    [Tooltip("Angle of the melee attack cone in degrees")]
+    [SerializeField] private float meleeAttackAngle = 90f;
+    
+    [Tooltip("Use sphere overlap for detection (false = use cone check)")]
+    [SerializeField] private bool useSimpleSphereDetection = false;
+    
+    [Tooltip("Maximum number of enemies hit per melee attack")]
+    [SerializeField] private int maxMeleeTargets = 5;
 
     [Header("Melee Combo Settings")]
     [SerializeField] private int comboCount = 3; // Number of hits in combo
@@ -296,46 +307,16 @@ public class PlayerAttack : MonoBehaviour
         // Update combo UI
         UpdateComboText();
 
-        // Use the same aiming logic for consistency
-        Vector3 attackDirection = GetShootDirection();
-        Vector3 attackOrigin = transform.position + Vector3.up * 0.5f;
+        // Perform cone attack
+        int enemiesHit = PerformConeAttack(damage, isFinalHit);
 
-        if (Physics.Raycast(attackOrigin, attackDirection, out RaycastHit hit, attackRange))
+        if (enemiesHit == 0)
         {
-            // Try new Health system first
-            var targetHealth = hit.collider.GetComponent<Health>();
-            if (targetHealth != null)
-            {
-                targetHealth.TakeDamage(damage);
-
-                if (DamageNumberManager.Instance != null)
-                {
-                    DamageNumberManager.Instance.ShowDamage(hit.point + Vector3.up, damage);
-                }
-                // Visual feedback for final hit
-                if (isFinalHit)
-                {
-                    Debug.Log($"<color=red>CRITICAL HIT on {hit.collider.name}!</color>");
-                }
-            }
-            else
-            {
-                // Fallback to old system
-                var enemyHealth = hit.collider.GetComponent<Health>();
-                if (enemyHealth != null)
-                {
-                    enemyHealth.TakeDamage(damage);
-                    
-                    if (isFinalHit)
-                    {
-                        Debug.Log($"<color=red>CRITICAL HIT on {hit.collider.name}!</color>");
-                    }
-                }
-            }
+            Debug.Log("Melee attack missed - no targets in cone");
         }
         else
         {
-            Debug.Log("Melee attack missed - no target in range");
+            Debug.Log($"Melee attack hit {enemiesHit} enem{(enemiesHit == 1 ? "y" : "ies")}!");
         }
 
         // Schedule combo reset if this was the final hit
@@ -344,7 +325,99 @@ public class PlayerAttack : MonoBehaviour
             Invoke(nameof(ResetCombo), comboResetDelay);
             comboResetInProgress = true;
         }
+    }
+
+    /// <summary>
+    /// Perform a cone-shaped melee attack in front of the player
+    /// </summary>
+    /// <param name="damage">Damage to deal to each enemy</param>
+    /// <param name="isCritical">Is this a critical/final hit?</param>
+    /// <returns>Number of enemies hit</returns>
+    private int PerformConeAttack(int damage, bool isCritical)
+    {
+        Vector3 attackOrigin = transform.position + Vector3.up * 0.5f;
+        Vector3 attackDirection = transform.forward;
+        int enemiesHit = 0;
+
+        // Find all colliders in range
+        Collider[] hitColliders = Physics.OverlapSphere(attackOrigin, attackRange, aimingLayerMask);
+
+        // Track unique enemies (in case they have multiple colliders)
+        HashSet<GameObject> hitEnemies = new HashSet<GameObject>();
+
+        foreach (Collider col in hitColliders)
+        {
+            // Skip if it's the player
+            if (col.gameObject == gameObject) continue;
+
+            // Skip if we've already hit this enemy
+            GameObject enemyRoot = col.transform.root.gameObject;
+            if (hitEnemies.Contains(enemyRoot)) continue;
+
+            // Check if target is in the attack cone
+            if (!IsInAttackCone(attackOrigin, attackDirection, col.transform.position))
+                continue;
+
+            // Check if max targets reached
+            if (enemiesHit >= maxMeleeTargets)
+                break;
+
+            // Try to damage the target
+            Health targetHealth = col.GetComponent<Health>();
+            if (targetHealth == null)
+            {
+                // Try root object if collider doesn't have Health
+                targetHealth = enemyRoot.GetComponent<Health>();
+            }
+
+            if (targetHealth != null)
+            {
+                targetHealth.TakeDamage(damage);
+                hitEnemies.Add(enemyRoot);
+                enemiesHit++;
+
+                // Show damage number
+                if (DamageNumberManager.Instance != null)
+                {
+                    DamageNumberManager.Instance.ShowDamage(col.bounds.center + Vector3.up, damage);
+                }
+
+                // Visual feedback for critical hit
+                if (isCritical)
+                {
+                    Debug.Log($"<color=red>CRITICAL HIT on {col.gameObject.name}!</color>");
+                }
+            }
+        }
+
+        return enemiesHit;
+    }
+
+    /// <summary>
+    /// Check if a position is within the attack cone
+    /// </summary>
+    /// <param name="origin">Attack origin point</param>
+    /// <param name="direction">Attack direction</param>
+    /// <param name="targetPosition">Position to check</param>
+    /// <returns>True if position is in cone</returns>
+    private bool IsInAttackCone(Vector3 origin, Vector3 direction, Vector3 targetPosition)
+    {
+        // If using simple sphere detection, skip cone check
+        if (useSimpleSphereDetection)
+            return true;
+
+        // Calculate direction to target
+        Vector3 toTarget = targetPosition - origin;
+        toTarget.y = 0; // Ignore vertical difference
         
+        if (toTarget == Vector3.zero)
+            return true; // Target is at origin
+
+        // Calculate angle between attack direction and target
+        float angle = Vector3.Angle(direction, toTarget.normalized);
+
+        // Check if within cone angle
+        return angle <= meleeAttackAngle * 0.5f;
     }
 
     private void ResetCombo()
@@ -734,12 +807,47 @@ public class PlayerAttack : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        // Draw attack range for melee
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, attackRange);
+        // Draw attack range for melee (cone visualization)
+        if (currentAttackMode == AttackMode.Melee || !Application.isPlaying)
+        {
+            Vector3 origin = transform.position + Vector3.up * 0.5f;
+            Vector3 forward = transform.forward;
+            
+            // Draw attack range sphere
+            Gizmos.color = new Color(1f, 0f, 0f, 0.2f);
+            Gizmos.DrawWireSphere(origin, attackRange);
+            
+            // Draw cone visualization
+            if (!useSimpleSphereDetection)
+            {
+                // Calculate cone edges
+                float halfAngle = meleeAttackAngle * 0.5f;
+                Vector3 leftBoundary = Quaternion.Euler(0, -halfAngle, 0) * forward * attackRange;
+                Vector3 rightBoundary = Quaternion.Euler(0, halfAngle, 0) * forward * attackRange;
+                
+                // Draw cone lines
+                Gizmos.color = Color.red;
+                Gizmos.DrawLine(origin, origin + leftBoundary);
+                Gizmos.DrawLine(origin, origin + rightBoundary);
+                Gizmos.DrawLine(origin, origin + forward * attackRange);
+                
+                // Draw cone arc
+                Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+                int segments = 20;
+                Vector3 previousPoint = origin + leftBoundary;
+                
+                for (int i = 1; i <= segments; i++)
+                {
+                    float angle = -halfAngle + (meleeAttackAngle * i / segments);
+                    Vector3 point = origin + Quaternion.Euler(0, angle, 0) * forward * attackRange;
+                    Gizmos.DrawLine(previousPoint, point);
+                    previousPoint = point;
+                }
+            }
+        }
 
-        // Draw shooting direction
-        if (Application.isPlaying)
+        // Draw shooting direction for ranged
+        if (Application.isPlaying && currentAttackMode == AttackMode.Ranged)
         {
             Vector3 shootDir = GetShootDirection();
             Vector3 spawnPos = GetProjectileSpawnPosition();

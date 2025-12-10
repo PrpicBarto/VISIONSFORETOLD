@@ -189,37 +189,9 @@ namespace VisionsForetold.Game.SaveSystem
 
         private void HandleGamepadInput()
         {
-            if (!enableAutoNavigation) return;
-            if (Time.time - lastNavigationTime < navigationDelay) return;
-
-            // Quick tab switching with shoulder buttons
-            if (Input.GetButtonDown("Previous")) // L1/LB
-            {
-                SwitchToPreviousTab();
-                lastNavigationTime = Time.time;
-            }
-            else if (Input.GetButtonDown("Next")) // R1/RB
-            {
-                SwitchToNextTab();
-                lastNavigationTime = Time.time;
-            }
-
-            // Action button (A/Cross) is handled by UI Button
-            // Cancel button (B/Circle) for back navigation
-            if (Input.GetButtonDown("Jump")) // B/Circle button
-            {
-                // If preview panel is open, close it
-                if (previewPanel != null && previewPanel.activeSelf)
-                {
-                    HidePreview();
-                }
-                // Otherwise, close the entire skill tree
-                else
-                {
-                    CloseSkillTree();
-                }
-                lastNavigationTime = Time.time;
-            }
+            // Gamepad navigation removed to avoid Input Manager conflicts
+            // Your project uses the New Input System, not the old Input Manager
+            // Use keyboard (Q/E/ESC) or add proper New Input System actions instead
         }
 
         private void HandleKeyboardInput()
@@ -239,14 +211,22 @@ namespace VisionsForetold.Game.SaveSystem
                 }
             }
 
-            // Tab navigation
+            // Tab navigation with delay
             if (Input.GetKeyDown(KeyCode.Q))
             {
-                SwitchToPreviousTab();
+                if (Time.time - lastNavigationTime >= navigationDelay)
+                {
+                    SwitchToPreviousTab();
+                    lastNavigationTime = Time.time;
+                }
             }
             else if (Input.GetKeyDown(KeyCode.E))
             {
-                SwitchToNextTab();
+                if (Time.time - lastNavigationTime >= navigationDelay)
+                {
+                    SwitchToNextTab();
+                    lastNavigationTime = Time.time;
+                }
             }
         }
 
