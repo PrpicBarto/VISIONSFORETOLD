@@ -25,14 +25,11 @@ namespace VisionsForetold.PointNClick
         [SerializeField] private bool unlockOnCompletion = true;
 
         [Header("Return to Map")]
-        [Tooltip("Show return to map UI")]
+        [Tooltip("Show return to map UI hint")]
         [SerializeField] private bool showReturnUI = true;
 
-        [Tooltip("Key to press to return to map")]
+        [Tooltip("Keyboard key to press to return to map")]
         [SerializeField] private KeyCode returnKey = KeyCode.M;
-
-        [Tooltip("Gamepad button name for return to map")]
-        [SerializeField] private string returnButton = "Start"; // Pause button
 
         [Header("Debug")]
         [SerializeField] private bool showDebug = true;
@@ -78,11 +75,9 @@ namespace VisionsForetold.PointNClick
 
         private void Update()
         {
-            // Handle return to map input
+            // Handle return to map input (keyboard only - avoid Input Manager)
             if (showReturnUI)
             {
-                // Only use keyboard input to avoid Input Manager errors
-                // Gamepad input should be handled through the new Input System
                 if (Input.GetKeyDown(returnKey))
                 {
                     ReturnToMap();
