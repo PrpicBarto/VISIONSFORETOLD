@@ -73,35 +73,41 @@ namespace _Scripts.Game.Enemy
 
     private void SummonMinions()
     {
-        if (summonPoints.Length == 0) return;
-        
-        // Summon 2 ghouls
+        StartCoroutine(SummonMinionsOverTime());
+    }
+
+    private IEnumerator SummonMinionsOverTime()
+    {
+        // Summon 2 ghouls with random delays
         for (int i = 0; i < 2; i++)
         {
             if (ghoulPrefab != null && i < summonPoints.Length)
             {
                 Instantiate(ghoulPrefab, summonPoints[i].position, Quaternion.identity);
+                yield return new WaitForSeconds(Random.Range(0.5f, 1.5f));
             }
         }
-        
-        // Summon 2 ghosts
+
+        // Summon 2 ghosts with random delays
         for (int i = 2; i < 4; i++)
         {
             if (ghostPrefab != null && i < summonPoints.Length)
             {
                 Instantiate(ghostPrefab, summonPoints[i].position, Quaternion.identity);
+                yield return new WaitForSeconds(Random.Range(0.5f, 1.5f));
             }
         }
-        
+
         // Summon 1 random uncommon
         if (uncommonEnemyPrefabs.Length > 0 && summonPoints.Length > 4)
         {
             GameObject randomEnemy = uncommonEnemyPrefabs[Random.Range(0, uncommonEnemyPrefabs.Length)];
             Instantiate(randomEnemy, summonPoints[4].position, Quaternion.identity);
         }
-        
+
         Debug.Log("Lich summoned minions!");
     }
+
 
     private void CastHellfire()
     {
