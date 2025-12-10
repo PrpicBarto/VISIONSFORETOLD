@@ -23,6 +23,12 @@ public abstract class BaseEnemy : MonoBehaviour
         if (health == null) health = GetComponent<Health>();
         if (animator == null) animator = GetComponent<Animator>();
 
+        // Set NavMeshAgent speed
+        if (agent != null)
+        {
+            agent.speed = moveSpeed;
+        }
+
         FindPlayer();
 
         if (health != null)
@@ -42,7 +48,7 @@ public abstract class BaseEnemy : MonoBehaviour
 
     protected virtual void Update()
     {
-        if (isDead || player == null || (health != null && health.isDead))
+        if (isDead || player == null || (health != null && health.IsDead))
         {
             return;
         }

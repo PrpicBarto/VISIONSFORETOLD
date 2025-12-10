@@ -26,6 +26,12 @@ public class RangedEnemy : MonoBehaviour
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         if (health == null) health = GetComponent<Health>();
         
+        // Set agent speed
+        if (agent != null)
+        {
+            agent.speed = moveSpeed;
+        }
+        
         if (player == null)
         {
             GameObject playerObj = GameObject.FindGameObjectWithTag("Player");

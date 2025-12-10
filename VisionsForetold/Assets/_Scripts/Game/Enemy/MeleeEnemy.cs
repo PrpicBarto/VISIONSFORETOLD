@@ -23,6 +23,12 @@ public class MeleeEnemy : MonoBehaviour
         if (agent == null) agent = GetComponent<NavMeshAgent>();
         if (health == null) health = GetComponent<Health>();
         
+        // Set agent speed
+        if (agent != null)
+        {
+            agent.speed = chaseSpeed;
+        }
+        
         if (player == null)
         {
             GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
