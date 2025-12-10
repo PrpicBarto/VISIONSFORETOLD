@@ -100,7 +100,7 @@
                     "name": "Sprint",
                     "type": "Button",
                     "id": "641cd816-40e6-41b4-8c3d-04687c349290",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
@@ -136,6 +136,15 @@
                     "name": "GamepadModeSwitch",
                     "type": "Button",
                     "id": "922c71b0-2021-400a-8e01-ea1f1c217bfa",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "SwitchCamera",
+                    "type": "Button",
+                    "id": "deeb73e2-a670-4aad-aeeb-55dca985422d",
                     "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
@@ -443,10 +452,10 @@
                 {
                     "name": "",
                     "id": "daba33a1-ad0c-4742-a909-43ad1cdfbeb6",
-                    "path": "<Gamepad>/buttonEast",
+                    "path": "<Gamepad>/buttonSouth",
                     "interactions": "",
                     "processors": "",
-                    "groups": "Gamepad",
+                    "groups": "Gamepad;Keyboard&Mouse",
                     "action": "Dodge",
                     "isComposite": false,
                     "isPartOfComposite": false
@@ -624,6 +633,17 @@
                     "processors": "",
                     "groups": ";Gamepad",
                     "action": "GamepadModeSwitch",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "69c122b1-6fb0-4889-8dbb-280acdb27246",
+                    "path": "<Gamepad>/buttonEast",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "SwitchCamera",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }
