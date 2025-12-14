@@ -45,6 +45,8 @@ namespace VisionsForetold.Game.Player.Echo
         [SerializeField] private float pulseInterval = 2.5f;
         [Tooltip("Width of the visible pulse ring")]
         [SerializeField] private float pulseWidth = 5f;
+        [Tooltip("How long the pulse takes to fade out (seconds)")]
+        [SerializeField] private float pulseFadeOutTime = 0.5f;
         [SerializeField] private bool autoPulse = true;
 
         [Header("Fog & Reveal Settings")]
@@ -88,6 +90,9 @@ namespace VisionsForetold.Game.Player.Echo
         private float pulseAge; // Time since pulse started
         private float timeSinceLastPulse;
         private bool isPulsing;
+        private bool isFadingOut;
+        private float fadeOutStartTime;
+        private float pulseIntensity = 1f;
         private float revealFade = 0f;
         private float timeSinceReveal;
         private Camera mainCamera;
@@ -146,25 +151,25 @@ namespace VisionsForetold.Game.Player.Echo
 
             UpdateFogPlanePosition();
             
-            bool wasPulsing = isPulsing;
+            bool wasPulsing = isPulsing || isFadingOut;
             UpdatePulseAnimation();
             
-            if (!isPulsing)
+            if (!isPulsing && !isFadingOut)
             {
                 UpdateRevealFade();
             }
             
-            // Always update when pulsing for smooth animation
+            // Always update when pulsing or fading for smooth animation
             // Dirty flag optimization only applies when idle
-            bool needsUpdate = isPulsing || wasPulsing != isPulsing || shaderPropertiesDirty;
+            bool needsUpdate = isPulsing || isFadingOut || (wasPulsing != (isPulsing || isFadingOut)) || shaderPropertiesDirty;
             
             if (needsUpdate)
             {
                 UpdateShaderProperties();
                 
-                // Only clear dirty flag if we're not pulsing
-                // Keep updating every frame while pulsing
-                if (!isPulsing)
+                // Only clear dirty flag if we're not pulsing or fading
+                // Keep updating every frame while active
+                if (!isPulsing && !isFadingOut)
                 {
                     shaderPropertiesDirty = false;
                 }
@@ -404,17 +409,44 @@ namespace VisionsForetold.Game.Player.Echo
 
         private void UpdatePulseAnimation()
         {
-            if (!isPulsing) return;
+            if (!isPulsing && !isFadingOut) return;
 
-            currentPulseRadius += pulseSpeed * Time.deltaTime;
-            pulseAge += Time.deltaTime;
-            
-            if (currentPulseRadius >= maxPulseRadius)
+            if (isPulsing && !isFadingOut)
             {
-                EndPulse();
+                // Pulse is expanding
+                currentPulseRadius += pulseSpeed * Time.deltaTime;
+                pulseAge += Time.deltaTime;
+                pulseIntensity = 1f;
+                
+                if (currentPulseRadius >= maxPulseRadius)
+                {
+                    StartPulseFadeOut();
+                }
+            }
+            else if (isFadingOut)
+            {
+                // Pulse is fading out
+                float fadeProgress = (Time.time - fadeOutStartTime) / pulseFadeOutTime;
+                pulseIntensity = 1f - Mathf.Clamp01(fadeProgress);
+                
+                if (fadeProgress >= 1f)
+                {
+                    EndPulse();
+                }
             }
         }
-
+        
+        private void StartPulseFadeOut()
+        {
+            isFadingOut = true;
+            fadeOutStartTime = Time.time;
+            
+            if (showDebug)
+            {
+                Debug.Log($"[Echolocation] Pulse starting fade-out over {pulseFadeOutTime}s");
+            }
+        }
+        
         private void UpdateRevealFade()
         {
             if (isPulsing) return;
@@ -442,9 +474,9 @@ namespace VisionsForetold.Game.Player.Echo
             Vector3 pulseCenter = player.position;
             pulseCenter.y = groundLevel; // Lock to ground level for shader calculations
             material.SetVector(PulseCenterID, pulseCenter);
-            material.SetFloat(PulseRadiusID, isPulsing ? currentPulseRadius : 0f);
-            material.SetFloat(PulseIntensityID, isPulsing ? 1f : 0f);
-            material.SetFloat(PulseAgeID, isPulsing ? pulseAge : 0f);
+            material.SetFloat(PulseRadiusID, (isPulsing || isFadingOut) ? currentPulseRadius : 0f);
+            material.SetFloat(PulseIntensityID, pulseIntensity);
+            material.SetFloat(PulseAgeID, (isPulsing || isFadingOut) ? pulseAge : 0f);
             
             // Only update static properties when dirty
             if (shaderPropertiesDirty)
@@ -475,28 +507,33 @@ namespace VisionsForetold.Game.Player.Echo
             if (!enableEcholocation) return;
 
             isPulsing = true;
+            isFadingOut = false;
             currentPulseRadius = 0f;
             pulseAge = 0f;
+            pulseIntensity = 1f;
             timeSinceLastPulse = 0f;
             timeSinceReveal = 0f;
             revealFade = 0f;
+            fadeOutStartTime = 0f;
             shaderPropertiesDirty = true;
 
             if (showDebug)
             {
-                Debug.Log($"[Echolocation] ?? Pulse triggered at {player.position}");
+                Debug.Log($"[Echolocation] Pulse triggered at {player.position}");
             }
         }
 
         private void EndPulse()
         {
             isPulsing = false;
+            isFadingOut = false;
             currentPulseRadius = 0f;
+            pulseIntensity = 0f;
             timeSinceReveal = 0f;
 
             if (showDebug)
             {
-                Debug.Log("[Echolocation] Pulse completed");
+                Debug.Log("[Echolocation] Pulse completed (faded out)");
             }
         }
 
