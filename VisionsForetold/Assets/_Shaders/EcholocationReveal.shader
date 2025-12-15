@@ -116,11 +116,20 @@ Shader "Custom/EcholocationReveal"
                         // Apply strength
                         revealAmount = max(revealAmount, falloff * revealStrength);
                         
-                        // Edge glow effect
+                        // Bold edge glow effect with multiple layers
                         float edgeDist = abs(dist - revealRadius * 0.5);
-                        float edge = 1.0 - saturate(edgeDist / (revealRadius * 0.3));
-                        edge = pow(edge, 3.0);
-                        edgeGlow = max(edgeGlow, edge * revealStrength);
+                        
+                        // Wider, softer edge
+                        float edgeSoft = 1.0 - saturate(edgeDist / (revealRadius * 0.4));
+                        edgeSoft = pow(edgeSoft, 2.0);
+                        
+                        // Sharp, bright edge
+                        float edgeSharp = 1.0 - saturate(edgeDist / (revealRadius * 0.2));
+                        edgeSharp = pow(edgeSharp, 4.0);
+                        
+                        // Combine for bold outline
+                        float edgeCombined = max(edgeSoft * 0.5, edgeSharp);
+                        edgeGlow = max(edgeGlow, edgeCombined * revealStrength * 1.5);
                     }
                 }
                 
@@ -135,7 +144,11 @@ Shader "Custom/EcholocationReveal"
                     half3 revealedColor = lerp(baseColor.rgb, _RevealColor.rgb * _RevealStrength, revealAmount * 0.15);
                     
                     // Very subtle edge glow
-                    revealedColor += _RevealColor.rgb * edgeGlow * _EdgeGlow * pulse * 0.2;
+                    revealedColor += _RevealColor.rgb * edgeGlow * _EdgeGlow * pulse * 0.5;
+                    
+                    // Add extra bright edge accent
+                    half3 edgeAccent = _RevealColor.rgb * pow(edgeGlow, 2.0) * _EdgeGlow * 0.3;
+                    revealedColor += edgeAccent * pulse;
                     
                     // Minimal brightness boost (keep it dark)
                     revealedColor *= (1.0 + revealAmount * 0.1);
@@ -229,10 +242,14 @@ Shader "Custom/EcholocationReveal"
                         falloff = pow(falloff, 2.0);
                         revealAmount = max(revealAmount, falloff * revealStrength);
                         
+                        // Bold edge with multiple layers
                         float edgeDist = abs(dist - revealRadius * 0.5);
-                        float edge = 1.0 - saturate(edgeDist / (revealRadius * 0.3));
-                        edge = pow(edge, 3.0);
-                        edgeGlow = max(edgeGlow, edge * revealStrength);
+                        float edgeSoft = 1.0 - saturate(edgeDist / (revealRadius * 0.4));
+                        edgeSoft = pow(edgeSoft, 2.0);
+                        float edgeSharp = 1.0 - saturate(edgeDist / (revealRadius * 0.2));
+                        edgeSharp = pow(edgeSharp, 4.0);
+                        float edgeCombined = max(edgeSoft * 0.5, edgeSharp);
+                        edgeGlow = max(edgeGlow, edgeCombined * revealStrength * 1.5);
                     }
                 }
                 
@@ -242,7 +259,12 @@ Shader "Custom/EcholocationReveal"
                     pulse = pulse * 0.1 + 0.9;
                     
                     fixed3 revealedColor = lerp(col.rgb, _RevealColor.rgb * _RevealStrength, revealAmount * 0.15);
-                    revealedColor += _RevealColor.rgb * edgeGlow * _EdgeGlow * pulse * 0.2;
+                    revealedColor += _RevealColor.rgb * edgeGlow * _EdgeGlow * pulse * 0.5;
+                    
+                    // Add edge accent for bolder outline
+                    fixed3 edgeAccent = _RevealColor.rgb * pow(edgeGlow, 2.0) * _EdgeGlow * 0.3;
+                    revealedColor += edgeAccent * pulse;
+                    
                     revealedColor *= (1.0 + revealAmount * 0.1);
                     
                     col.rgb = revealedColor;

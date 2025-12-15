@@ -141,19 +141,28 @@ Shader "Custom/CharacterXRay"
             
             half4 frag(Varyings input) : SV_Target
             {
-                // Rim lighting effect
+                // Bold rim lighting effect
                 float3 normalWS = normalize(input.normalWS);
                 float3 viewDirWS = normalize(input.viewDirWS);
                 float rim = 1.0 - saturate(dot(normalWS, viewDirWS));
-                rim = pow(rim, _RimPower);
+                
+                // Multi-layered rim for bolder outline
+                float rimBold = pow(rim, _RimPower * 0.5);      // Wider rim
+                float rimSharp = pow(rim, _RimPower);            // Sharp rim
+                float rimCombined = max(rimBold * 0.6, rimSharp); // Combine for bold effect
                 
                 // Pulsing effect
                 float pulse = (sin(_Time.y * 3.0) + 1.0) * 0.5;
                 pulse = pulse * 0.3 + 0.7; // Range 0.7 to 1.0
                 
+                // Enhanced outline brightness
                 half4 color = _XRayColor;
-                color.rgb *= rim * pulse;
-                color.a = _XRayStrength * rim;
+                color.rgb *= rimCombined * pulse * 1.5; // 1.5x brighter
+                color.a = _XRayStrength * rimCombined;
+                
+                // Add extra bright edge highlight
+                float edgeHighlight = pow(rim, _RimPower * 1.5);
+                color.rgb += _XRayColor.rgb * edgeHighlight * 0.5 * pulse;
                 
                 return color;
             }
@@ -257,14 +266,22 @@ Shader "Custom/CharacterXRay"
                 float3 normalWS = normalize(i.worldNormal);
                 float3 viewDir = normalize(i.viewDir);
                 float rim = 1.0 - saturate(dot(normalWS, viewDir));
-                rim = pow(rim, _RimPower);
+                
+                // Multi-layered rim for bolder outline
+                float rimBold = pow(rim, _RimPower * 0.5);
+                float rimSharp = pow(rim, _RimPower);
+                float rimCombined = max(rimBold * 0.6, rimSharp);
                 
                 float pulse = (sin(_Time.y * 3.0) + 1.0) * 0.5;
                 pulse = pulse * 0.3 + 0.7;
                 
                 fixed4 col = _XRayColor;
-                col.rgb *= rim * pulse;
-                col.a = _XRayStrength * rim;
+                col.rgb *= rimCombined * pulse * 1.5; // Bolder & brighter
+                col.a = _XRayStrength * rimCombined;
+                
+                // Extra edge highlight
+                float edgeHighlight = pow(rim, _RimPower * 1.5);
+                col.rgb += _XRayColor.rgb * edgeHighlight * 0.5 * pulse;
                 
                 return col;
             }

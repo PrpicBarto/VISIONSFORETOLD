@@ -41,14 +41,14 @@ Material:
     - _PulseRadius: 0
     - _PulseWidth: 0.1
     - _RevealCount: 4
-    - _RevealFade: 0.9999972
+    - _RevealFade: 0.99999684
     - _RevealRadius: 25
     - _VerticalInfluence: 0.8
     m_Colors:
     - _DarkColor: {r: 0.29999998, g: 0.29999998, b: 0.34999996, a: 1}
     - _EdgeColor: {r: 0.3, g: 0.6, b: 1, a: 1}
     - _FogColor: {r: 0, g: 0, b: 0, a: 1}
-    - _PulseCenter: {r: 17.13457, g: -0.00000011920929, b: -0.9220545, a: 0}
+    - _PulseCenter: {r: -20.567314, g: -0.0000000029621177, b: 6.1859236, a: 0}
     - _PulseOrigin: {r: 0, g: 0, b: 0, a: 0}
     - _RevealColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
