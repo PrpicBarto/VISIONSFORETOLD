@@ -301,7 +301,8 @@ namespace VisionsForetold.Game.Player.Echo
 
             foreach (var kvp in revealedObjects)
             {
-                if (currentTime >= kvp.Value.endTime)
+                // Check if object was destroyed or time expired
+                if (kvp.Key == null || currentTime >= kvp.Value.endTime)
                 {
                     objectsToRemove.Add(kvp.Key);
                 }
@@ -310,13 +311,24 @@ namespace VisionsForetold.Game.Player.Echo
             for (int i = 0; i < objectsToRemove.Count; i++)
             {
                 GameObject obj = objectsToRemove[i];
-                if (showDebugLogs)
+                
+                // Null check before accessing properties or methods
+                if (obj != null)
                 {
-                    Debug.Log($"[EchoReveal] Hiding: {obj.name}");
+                    if (showDebugLogs)
+                    {
+                        Debug.Log($"[EchoReveal] Hiding: {obj.name}");
+                    }
+                    
+                    // Restore materials before removing
+                    RestoreMaterials(obj);
+                }
+                else if (showDebugLogs)
+                {
+                    Debug.Log("[EchoReveal] Hiding: (destroyed object)");
                 }
                 
-                // Restore materials before removing
-                RestoreMaterials(obj);
+                // Always remove from dictionary
                 revealedObjects.Remove(obj);
             }
         }
@@ -376,6 +388,10 @@ namespace VisionsForetold.Game.Player.Echo
             // Update reveal strength based on time
             foreach (var kvp in revealedObjects)
             {
+                // Skip if object was destroyed
+                if (kvp.Key == null)
+                    continue;
+                
                 RevealData data = kvp.Value;
                 float timeAlive = currentTime - data.revealTime;
                 float timeToDeath = data.endTime - currentTime;
@@ -393,7 +409,10 @@ namespace VisionsForetold.Game.Player.Echo
                         MaterialData matData = materialCache[renderer];
                         foreach (Material mat in matData.revealMaterials)
                         {
-                            mat.SetFloat(RevealStrengthID, revealBrightness * strength);
+                            if (mat != null)
+                            {
+                                mat.SetFloat(RevealStrengthID, revealBrightness * strength);
+                            }
                         }
                     }
                 }
@@ -402,18 +421,25 @@ namespace VisionsForetold.Game.Player.Echo
         
         private void RestoreMaterials(GameObject obj)
         {
-            if (!revealedObjects.ContainsKey(obj))
+            // Null check for destroyed objects
+            if (obj == null || !revealedObjects.ContainsKey(obj))
                 return;
             
             RevealData data = revealedObjects[obj];
             
-            foreach (Renderer renderer in data.renderers)
+            if (data != null && data.renderers != null)
             {
-                if (renderer != null && materialCache.ContainsKey(renderer))
+                foreach (Renderer renderer in data.renderers)
                 {
-                    MaterialData matData = materialCache[renderer];
-                    renderer.sharedMaterials = matData.originalMaterials;
-                    materialCache.Remove(renderer);
+                    if (renderer != null && materialCache.ContainsKey(renderer))
+                    {
+                        MaterialData matData = materialCache[renderer];
+                        if (matData != null && matData.originalMaterials != null)
+                        {
+                            renderer.sharedMaterials = matData.originalMaterials;
+                        }
+                        materialCache.Remove(renderer);
+                    }
                 }
             }
         }
