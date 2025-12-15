@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 public class Chaosmancer : MonoBehaviour
@@ -88,7 +89,7 @@ public class Chaosmancer : MonoBehaviour
             projectileSpawnPoint = transform;
         }
 
-        PlaySound(roarSound);
+        PlaySound(roarSound);žž
     }
 
     private void FindPlayer()
@@ -143,6 +144,152 @@ public class Chaosmancer : MonoBehaviour
 
     private void DecideNextAttack()
     {
+        float currentTime = Time.time;
 
+        bool canTornado = currentTime - lastTransformTime > tornadoCooldown;
+        bool canTransform = currentTime - lastTransformTime > transformCooldown;
+        bool canSlam = currentTime - lastSlamTime > slamCooldown;
+
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        if (canTransform && attackCounter >= 3)
+        {
+            StartCoroutine(TransformAttack());
+            attackCounter = 0;
+        }
+        
+        else if (canSlam && distanceToPlayer <= slamDamage)
+        {
+            GroundSlamAttack();
+            attackCounter = 0;
+        }
+        
+        else if (canTornado)
+        {
+            TornadoProjectileAttack();
+            attackCounter++;
+        }
+    }
+
+    private void TornadoProjectileAttack()
+    {
+        if (tornadoProjectilePrefab == null)
+        {
+            lastTornadoTime = Time.time;
+            LookAtPlayer();
+
+            Vector3 direction = (player.position - projectileSpawnPoint.position).normalized;
+            GameObject tornado = Instantiate(tornadoFormPrefab, projectileSpawnPoint.position,
+                Quaternion.LookRotation(direction));
+
+            TornadoProjectile tornadoScript = tornado.GetComponent<TornadoProjectile>();
+            if (tornadoScript != null)
+            {
+                tornadoScript.Initialize(tornadoDamage, tornadoSpeed);
+            }
+            else
+            {
+                ProjectileDamage projDamage = tornado.GetComponent<ProjectileDamage>();
+                if (projDamage != null)
+                {
+                    projDamage.Initialize(tornadoDamage, gameObject, "Player");
+                }
+                
+                Rigidbody tornadoRb = tornado.GetComponent<Rigidbody>();
+                if (tornadoRb != null)
+                {
+                    tornadoRb.linearVelocity = direction * tornadoSpeed;ž
+                }
+            }
+            PlaySound(tornadoSound);
+            Debug.Log("Chaosmancer fired tornado!");
+        }
+    }
+
+    private IEnumerator TransformAttack()
+    {
+        isTransformed = true;
+        lastTransformTime = Time.time;
+
+        if (tornadoFormPrefab != null)
+        {
+            tornadoFormDistance = Instantiate(tornadoFormPrefab, transform.position, Quaternion.identity);
+            tornadoFormDistance.transform.SetParent(transform);
+        }
+
+        MeshRenderer renderer = GetComponentInChildren<MeshRenderer>();
+        if (renderer != null) renderer.enabled = false;
+        
+        PlaySound(transformSound);
+        Debug.Log($"Chaosmancer transformed into tornado!");
+        
+        float elapsedTime = 0f;
+        float damageTickRate = 0.5f;
+        float lastDamageTick = 0f;
+
+        while (elapsedTime < transformDuration)
+        {
+            PullPlayerTowardBoss();
+
+            if (elapsedTime - lastDamageTick >= damageTickRate)
+            {
+                DealTransformDamage();
+                lastDamageTick = elapsedTime;
+            }
+            
+            elapsedTime += Time.deltaTime;
+            yield return null;
+        }
+
+        if (tornadoFormDistance != null)
+        {
+            Destroy(tornadoFormDistance);
+        }
+        
+        if(renderer != null) renderer.enabled = true;
+        
+        isTransformed = false;
+        Debug.Log($"Chaosmancer transformation ended!");
+    }
+
+    private void PullPlayerTowardBoss()
+    {
+        if(player==null) return;
+        
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        if (distance <= pullRadius)
+        {
+            Vector3 pullDir = (transform.position - player.position).normalized;
+            
+            Rigidbody playerRb = player.GetComponent<Rigidbody>();
+            if (playerRb != null)
+            {
+                playerRb.AddForce(pullDir * pullForce, ForceMode.Force);
+            }
+            else
+            {
+                player.position += pullDir * (pullForce * Time.deltaTime * 0.1f);
+            }
+        }
+    }
+
+    private void DealTransformDamage()
+    {
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        if (distance <= pullRadius)
+        {
+            Health playerHealth = player.GetComponent<Health>();
+            if (playerHealth != null)
+            {
+                playerHealth.TakeDamage(transformDamagePerTick);
+
+                if (DamageNumberManager.Instance != null)
+                {
+                    DamageNumberManager.Instance.ShowDamage(player.position + Vector3.up * 2f, transformDamagePerTick);
+                }
+            }
+        }
     }
 }
