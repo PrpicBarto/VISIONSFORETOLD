@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
-/*/
+
 public class Chaosmancer : MonoBehaviour
 {
     [Header("Boss stats")] [SerializeField]
@@ -292,4 +292,110 @@ public class Chaosmancer : MonoBehaviour
             }
         }
     }
-}/*/
+
+    private void GroundSlamAttack()
+    {
+        lastSlamTime = Time.time;
+        
+        StartCoroutine(PerformGroundSlam());
+    }
+
+    private IEnumerator PerformGroundSlam()
+    {
+        yield return new WaitForSeconds(0.5f);
+
+        PlaySound(slamSound);
+
+        if (slamEffectPrefab != null)
+        {
+            GameObject slamEffect = Instantiate(slamEffectPrefab, transform.position, Quaternion.identity);
+            Destroy(slamEffect, 2f);
+        }
+
+        float distance = Vector3.Distance(transform.position, player.position);
+
+        if (distance <= slamRange)
+        {
+            Health playerHealth = player.GetComponent<Health>();
+            if (playerHealth != null)
+            {
+                playerHealth.TakeDamage(slamDamage);
+
+                if (DamageNumberManager.Instance != null)
+                {
+                    DamageNumberManager.Instance.ShowDamage(player.position + Vector3.up * 2f, slamDamage);
+                }
+            }
+        }
+        
+        Rigidbody playerRb = player.GetComponent<Rigidbody>();
+        if (playerRb != null)
+        {
+            playerRb.AddForce(Vector3.up * knockupForce, ForceMode.Impulse);
+        }
+
+        Debug.Log($"Chaosmancer slammed the ground! Player knocked up!");
+    }
+
+    private void OnHealthChanged(int currentHealth, int maxHealth)
+    {
+        float healthPercent = (float)currentHealth / maxHealth;
+
+        if (!inPhase2 && healthPercent < phaseTransitionHealth)
+        {
+            EnterPhase2();
+        }
+    }
+
+    private void EnterPhase2()
+    {
+        inPhase2 = true;
+        isEnraged = true;
+
+        tornadoCooldown *= 0.7f;
+        transformCooldown *= 0.7f;
+        slamCooldown *= 0.7f;
+
+        moveSpeed *= 1.3f;
+
+        PlaySound(roarSound);
+        Debug.Log($"Chaosmancer entered Phase 2! ENRAGED!!!");
+    }
+
+    private void OnDeath()
+    {
+        isDead = true;
+        
+        StopAllCoroutines();
+
+        if (tornadoFormDistance != null)
+        {
+            Destroy(tornadoFormDistance);
+        }
+
+        Debug.Log($"Chaosmancer defeated!");
+    }
+
+    private void PlaySound(AudioClip clip)
+    {
+        if (audioSource != null && clip != null)
+        {
+            audioSource.PlayOneShot(clip);
+        }
+    }
+
+    private void OnDrawGizmosSelected()
+    {
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, slamRange);
+        
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, pullRadius);
+        
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, minDistance);
+        
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(transform.position, maxDistance);
+    }
+}
