@@ -1,7 +1,7 @@
 using System;
 using System.Collections;
 using UnityEngine;
-
+/*/
 public class Chaosmancer : MonoBehaviour
 {
     [Header("Boss stats")] [SerializeField]
@@ -89,7 +89,7 @@ public class Chaosmancer : MonoBehaviour
             projectileSpawnPoint = transform;
         }
 
-        PlaySound(roarSound);žž
+        PlaySound(roarSound);
     }
 
     private void FindPlayer()
@@ -198,7 +198,7 @@ public class Chaosmancer : MonoBehaviour
                 Rigidbody tornadoRb = tornado.GetComponent<Rigidbody>();
                 if (tornadoRb != null)
                 {
-                    tornadoRb.linearVelocity = direction * tornadoSpeed;ž
+                    tornadoRb.linearVelocity = direction * tornadoSpeed;
                 }
             }
             PlaySound(tornadoSound);
@@ -292,4 +292,4 @@ public class Chaosmancer : MonoBehaviour
             }
         }
     }
-}
+}/*/
