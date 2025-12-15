@@ -58,7 +58,7 @@ public class BossHealthBar : MonoBehaviour
 
         if (bossHealthText != null)
         {
-            bossHealthText.text$"{currentHealth}/{maxHealth}";
+            bossHealthText.text="{currentHealth}/{maxHealth}";
         }
     }
 
