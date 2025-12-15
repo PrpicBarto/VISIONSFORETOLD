@@ -722,6 +722,10 @@ PrefabInstance:
       value: Sarcophagus (1)
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ff5c93c981f12ee4ea00187d622589ca, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ff5c93c981f12ee4ea00187d622589ca, type: 3}
       propertyPath: m_TagString
       value: Wall
       objectReference: {fileID: 0}
@@ -1276,6 +1280,10 @@ PrefabInstance:
       value: Pillar_1
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 8ef0b951cefc6df42ab26b52a1ed3d10, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 8ef0b951cefc6df42ab26b52a1ed3d10, type: 3}
       propertyPath: m_TagString
       value: Wall
       objectReference: {fileID: 0}
@@ -1706,7 +1714,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 252938278}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: SummonPoint1 (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1939,6 +1947,7 @@ GameObject:
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
   - component: {fileID: 330585548}
+  - component: {fileID: 330585549}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1963,8 +1972,8 @@ Camera:
   m_GameObject: {fileID: 330585543}
   m_Enabled: 1
   serializedVersion: 2
-  m_ClearFlags: 1
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_ClearFlags: 2
+  m_BackGroundColor: {r: 0, g: 0, b: 0, a: 0}
   m_projectionMatrixMode: 1
   m_GateFitMode: 2
   m_FOVAxisMode: 0
@@ -2096,6 +2105,33 @@ MonoBehaviour:
       m_PostInfinity: 2
       m_RotationOrder: 4
   CustomBlends: {fileID: 0}
+--- !u!114 &330585549
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: faf8c1e94cc6dcf4c955d5d785c1e6dd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CharacterXRaySystem
+  player: {fileID: 5342806458869551345}
+  mainCamera: {fileID: 0}
+  includeEnemies: 1
+  enemyTag: Enemy
+  xrayMaterial: {fileID: 2100000, guid: 2b39df7365367834e98f85f3e86adc1a, type: 2}
+  xrayColor: {r: 0.2, g: 0.8, b: 1, a: 0.8}
+  xrayStrength: 0.8
+  rimPower: 3
+  obstructionLayers:
+    serializedVersion: 2
+    m_Bits: 128
+  checkInterval: 0.1
+  useSphereCast: 1
+  sphereRadius: 0.3
+  showDebugRays: 0
 --- !u!1 &356195576
 GameObject:
   m_ObjectHideFlags: 0
@@ -2931,6 +2967,10 @@ PrefabInstance:
       value: Grave (1)
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 58689850a6d630c44a3b0aba0d565163, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 58689850a6d630c44a3b0aba0d565163, type: 3}
       propertyPath: m_TagString
       value: Wall
       objectReference: {fileID: 0}
@@ -3233,7 +3273,7 @@ GameObject:
   - component: {fileID: 527451683}
   - component: {fileID: 527451682}
   - component: {fileID: 527451681}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Lich
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -3636,13 +3676,57 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7147636103725962411, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -6070900075407532760, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -3553036443725567031, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -1584369833115436920, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -1492178747502491287, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: -1245609789501055109, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
       propertyPath: m_Name
       value: Stone_altar
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
       propertyPath: m_TagString
       value: Wall
+      objectReference: {fileID: 0}
+    - target: {fileID: 3689666827411566378, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 6715169908596706749, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 7158037527489871800, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836598134102845605, guid: 1e18dba34ec915f44b039040c59f68df, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -3693,7 +3777,7 @@ GameObject:
   - component: {fileID: 549955640}
   - component: {fileID: 549955642}
   - component: {fileID: 549955641}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Background
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4873,7 +4957,7 @@ GameObject:
   - component: {fileID: 726459505}
   - component: {fileID: 726459507}
   - component: {fileID: 726459504}
-  - component: {fileID: 726459506}
+  - component: {fileID: 726459508}
   m_Layer: 0
   m_Name: EchoManager
   m_TagString: Untagged
@@ -4909,6 +4993,7 @@ MonoBehaviour:
   maxPulseRadius: 20
   pulseInterval: 3
   pulseWidth: 0.1
+  pulseFadeOutTime: 0.5
   autoPulse: 1
   permanentRevealRadius: 25
   revealDuration: 3
@@ -4961,38 +5046,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &726459506
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 726459503}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b82f5f0f2e9373f45b95fb85e469eef5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoIntersectionDetector
-  detectionLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  raycastResolution: 32
-  detectionThreshold: 2
-  detect3D: 1
-  verticalRayCount: 7
-  verticalRayHeight: 10
-  wallTag: Wall
-  enemyTag: Enemy
-  itemTag: Item
-  interactiveTag: Interactive
-  hazardTag: Hazard
-  enableHighlighting: 1
-  highlightDuration: 0.01
-  highlightColor: {r: 0.3, g: 0.6, b: 1, a: 1}
-  highlightIntensity: 0.01
-  logDetections: 1
-  maxTrackedObjects: 100
-  detectionFrameInterval: 1
 --- !u!114 &726459507
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5006,7 +5059,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoManager
   echoController: {fileID: 726459504}
-  intersectionDetector: {fileID: 726459506}
+  intersectionDetector: {fileID: 0}
   revealSystem: {fileID: 0}
   edgeDetection: {fileID: 0}
   pulseMemory: {fileID: 0}
@@ -5022,6 +5075,35 @@ MonoBehaviour:
   updateInterval: 0
   showDebug: 0
   validateSetupOnStart: 0
+--- !u!114 &726459508
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 726459503}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43d08d3080eb6894c9e76f179189f052, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EchoRevealSystem
+  detectionLayers:
+    serializedVersion: 2
+    m_Bits: 384
+  raycastsPerFrame: 64
+  detectionThreshold: 3
+  revealDuration: 5
+  detect3D: 0
+  verticalRayCount: 5
+  verticalRange: 10
+  applyRevealMaterial: 1
+  revealMaterial: {fileID: 2100000, guid: 77c9b6f503b4db847a7b5a4d4002a972, type: 2}
+  revealColor: {r: 0.3, g: 0.8, b: 1, a: 1}
+  revealBrightness: 1.5
+  maxRevealedObjects: 50
+  revealRadius: 5
+  showDebugLogs: 1
+  showDebugGizmos: 1
 --- !u!1 &736564447
 GameObject:
   m_ObjectHideFlags: 0
@@ -5035,7 +5117,7 @@ GameObject:
   - component: {fileID: 736564449}
   - component: {fileID: 736564448}
   - component: {fileID: 736564452}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Cube (3)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -5468,7 +5550,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 743556730}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: SummonPoint1 (3)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6640,7 +6722,7 @@ GameObject:
   - component: {fileID: 936775860}
   - component: {fileID: 936775859}
   - component: {fileID: 936775858}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: GhostHealthCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7676,37 +7758,6 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1092622727}
   m_CullTransparentMesh: 1
---- !u!1 &1112096936
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1112096937}
-  m_Layer: 0
-  m_Name: CameraFollow
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1112096937
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1112096936}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1114522033
 GameObject:
   m_ObjectHideFlags: 0
@@ -7884,6 +7935,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: ad07d48f22fd96e459e3541fb20f1ea8, type: 3}
       propertyPath: m_Name
       value: Fountain (1)
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ad07d48f22fd96e459e3541fb20f1ea8, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ad07d48f22fd96e459e3541fb20f1ea8, type: 3}
       propertyPath: m_TagString
@@ -8453,6 +8508,10 @@ PrefabInstance:
       value: Pillar_2
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: e9a0e8ad42416db48900b06b380f2b9d, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: e9a0e8ad42416db48900b06b380f2b9d, type: 3}
       propertyPath: m_TagString
       value: Wall
       objectReference: {fileID: 0}
@@ -8501,7 +8560,7 @@ GameObject:
   - component: {fileID: 1228286947}
   - component: {fileID: 1228286946}
   - component: {fileID: 1228286950}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Cube (5)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -8884,6 +8943,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: ba581a9693ff6bf4685d4f45f5f570df, type: 3}
       propertyPath: m_Name
       value: Grave_stone
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: ba581a9693ff6bf4685d4f45f5f570df, type: 3}
+      propertyPath: m_Layer
+      value: 7
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: ba581a9693ff6bf4685d4f45f5f570df, type: 3}
       propertyPath: m_TagString
@@ -9680,7 +9743,7 @@ GameObject:
   - component: {fileID: 1496069270}
   - component: {fileID: 1496069269}
   - component: {fileID: 1496069273}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Cube (4)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -10292,7 +10355,7 @@ GameObject:
   - component: {fileID: 1535219814}
   - component: {fileID: 1535219816}
   - component: {fileID: 1535219815}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: Fill
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -10879,6 +10942,10 @@ PrefabInstance:
       value: stairs (1)
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: c21de4906aa595d46b3dd43a4026641a, type: 3}
+      propertyPath: m_Layer
+      value: 7
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: c21de4906aa595d46b3dd43a4026641a, type: 3}
       propertyPath: m_TagString
       value: Wall
       objectReference: {fileID: 0}
@@ -11038,7 +11105,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1744084884}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: SummonPoint1
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11787,7 +11854,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1821388797}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: SummonPoint1 (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -11940,7 +12007,7 @@ GameObject:
   - component: {fileID: 1831488417}
   - component: {fileID: 1831488416}
   - component: {fileID: 1831488420}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Cube (2)
   m_TagString: Wall
   m_Icon: {fileID: 0}
@@ -13489,7 +13556,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2118036016}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: SummonPoint1 (4)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -13933,9 +14000,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 119198419522022067, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 508934641608996833, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
       propertyPath: m_Name
       value: Ghost_Basic
+      objectReference: {fileID: 0}
+    - target: {fileID: 508934641608996833, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 508934641608996833, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
       propertyPath: m_IsActive
@@ -13985,6 +14060,10 @@ PrefabInstance:
       propertyPath: m_LocalPosition.z
       value: 0.7
       objectReference: {fileID: 0}
+    - target: {fileID: 3710927396293493318, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 4791166931083113219, guid: 8a9a5aa0df736b1449cbf79ff0ae443a, type: 3}
       propertyPath: m_Center.y
       value: 0.5
@@ -14012,6 +14091,10 @@ PrefabInstance:
     - target: {fileID: 327144760424102590, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
       propertyPath: m_BaseOffset
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 657983727238842628, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 1403469119493277885, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
       propertyPath: m_LocalPosition.x
@@ -14058,6 +14141,10 @@ PrefabInstance:
       value: Revenant_Healer
       objectReference: {fileID: 0}
     - target: {fileID: 1701367097290892000, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 1701367097290892000, guid: 481abfd2b52ea7a47b686080f151ddbe, type: 3}
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
@@ -14078,6 +14165,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 1433157570328199104, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 3552903710124695220, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -14125,6 +14216,10 @@ PrefabInstance:
     - target: {fileID: 8194550748536736270, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
       propertyPath: m_Name
       value: Wraith_Ranged
+      objectReference: {fileID: 0}
+    - target: {fileID: 8194550748536736270, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 8194550748536736270, guid: c9a5a6dc9d582d34d894de441d760a8f, type: 3}
       propertyPath: m_IsActive
@@ -14298,7 +14393,7 @@ PrefabInstance:
     - target: {fileID: 7184839446380980272, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       propertyPath: aimTarget
       value: 
-      objectReference: {fileID: 1112096937}
+      objectReference: {fileID: 0}
     - target: {fileID: 7184839446380980272, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       propertyPath: positionComposer
       value: 
@@ -19286,9 +19381,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2719196576177842738, guid: 17caca8199458694abc4afc3a93451af, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 6769749428951730916, guid: 17caca8199458694abc4afc3a93451af, type: 3}
       propertyPath: m_Name
       value: Ghoul_Basic
+      objectReference: {fileID: 0}
+    - target: {fileID: 6769749428951730916, guid: 17caca8199458694abc4afc3a93451af, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 6769749428951730916, guid: 17caca8199458694abc4afc3a93451af, type: 3}
       propertyPath: m_IsActive
@@ -19359,6 +19462,10 @@ PrefabInstance:
       propertyPath: player
       value: 
       objectReference: {fileID: 5342806458869551345}
+    - target: {fileID: 2471826979328042034, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
     - target: {fileID: 4877673473694392903, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5
@@ -19412,6 +19519,10 @@ PrefabInstance:
       value: Wraith_Agressive
       objectReference: {fileID: 0}
     - target: {fileID: 8266939595284516124, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8266939595284516124, guid: 1223097c9e1bdee4fac69386ca0e7d91, type: 3}
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
@@ -19434,8 +19545,16 @@ PrefabInstance:
       value: Spectre
       objectReference: {fileID: 0}
     - target: {fileID: 3988809582211035481, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 3988809582211035481, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
       propertyPath: m_IsActive
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6767272123224241178, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
+      propertyPath: m_Layer
+      value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 7216136584956488525, guid: deaddcf4ea85bf14798cf1e9526bb92e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -19511,6 +19630,10 @@ PrefabInstance:
       value: Revenant_Buffer
       objectReference: {fileID: 0}
     - target: {fileID: 248226746122486928, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
+      propertyPath: m_Layer
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 248226746122486928, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
       propertyPath: m_IsActive
       value: 0
       objectReference: {fileID: 0}
@@ -19524,6 +19647,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1148131458237943217, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
       propertyPath: supportCooldown
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 2051238566553609313, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
+      propertyPath: m_Layer
       value: 8
       objectReference: {fileID: 0}
     - target: {fileID: 2168302548937162913, guid: 9991b3609eea07a47a71b5be37e1d6ca, type: 3}
@@ -19609,7 +19736,6 @@ SceneRoots:
   - {fileID: 356195580}
   - {fileID: 113049019}
   - {fileID: 1835896061}
-  - {fileID: 1112096937}
   - {fileID: 423999412}
   - {fileID: 1875411279}
   - {fileID: 221150313}

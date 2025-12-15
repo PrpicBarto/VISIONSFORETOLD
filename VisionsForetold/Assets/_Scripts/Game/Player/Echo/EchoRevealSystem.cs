@@ -5,7 +5,7 @@ namespace VisionsForetold.Game.Player.Echo
 {
     /// <summary>
     /// Makes objects visible when echolocation pulse intersects them
-    /// Objects are revealed by removing fog overlay in their area
+    /// Objects are revealed by applying a glowing material effect
     /// </summary>
     public class EchoRevealSystem : MonoBehaviour
     {
@@ -31,6 +31,19 @@ namespace VisionsForetold.Game.Player.Echo
         [Tooltip("Height range for vertical detection")]
         [SerializeField] private float verticalRange = 10f;
 
+        [Header("Visual Reveal")]
+        [Tooltip("Apply reveal material to objects (shows glowing effect)")]
+        [SerializeField] private bool applyRevealMaterial = true;
+        
+        [Tooltip("Material to apply for reveal effect")]
+        [SerializeField] private Material revealMaterial;
+        
+        [Tooltip("Reveal color (darker values recommended)")]
+        [SerializeField] private Color revealColor = new Color(0.2f, 0.5f, 0.7f, 0.6f);
+        
+        [Tooltip("Reveal brightness multiplier (lower = darker)")]
+        [SerializeField, Range(0.5f, 3f)] private float revealBrightness = 0.8f;
+
         [Header("Shader Communication")]
         [Tooltip("Maximum revealed object positions to send to shader")]
         [SerializeField] private int maxRevealedObjects = 50;
@@ -48,6 +61,7 @@ namespace VisionsForetold.Game.Player.Echo
         private Dictionary<GameObject, RevealData> revealedObjects = new Dictionary<GameObject, RevealData>();
         private List<GameObject> objectsToRemove = new List<GameObject>(10);
         private Dictionary<GameObject, Bounds> boundsCache = new Dictionary<GameObject, Bounds>(50);
+        private Dictionary<Renderer, MaterialData> materialCache = new Dictionary<Renderer, MaterialData>();
         
         // Shader data arrays
         private Vector4[] revealPositions;
@@ -59,6 +73,8 @@ namespace VisionsForetold.Game.Player.Echo
         private static readonly int RevealPositionsID = Shader.PropertyToID("_RevealPositions");
         private static readonly int RevealRadiiID = Shader.PropertyToID("_RevealRadii");
         private static readonly int RevealStrengthsID = Shader.PropertyToID("_RevealStrengths");
+        private static readonly int RevealColorID = Shader.PropertyToID("_RevealColor");
+        private static readonly int RevealStrengthID = Shader.PropertyToID("_RevealStrength");
 
         private class RevealData
         {
@@ -68,6 +84,13 @@ namespace VisionsForetold.Game.Player.Echo
             public float revealTime;
             public float endTime;
             public Bounds bounds;
+            public List<Renderer> renderers;
+        }
+        
+        private class MaterialData
+        {
+            public Material[] originalMaterials;
+            public Material[] revealMaterials;
         }
 
         #region Unity Lifecycle
@@ -89,6 +112,8 @@ namespace VisionsForetold.Game.Player.Echo
             revealPositions = new Vector4[maxRevealedObjects];
             revealRadii = new float[maxRevealedObjects];
             revealStrengths = new float[maxRevealedObjects];
+            
+            CreateRevealMaterial();
         }
 
         private void Update()
@@ -100,8 +125,38 @@ namespace VisionsForetold.Game.Player.Echo
 
             UpdateRevealedObjects();
             SendDataToShader();
+            UpdateRevealMaterials();
+        }
+        
+        private void OnDestroy()
+        {
+            RestoreAllMaterials();
         }
 
+        #endregion
+        
+        #region Initialization
+        
+        private void CreateRevealMaterial()
+        {
+            if (revealMaterial == null)
+            {
+                Shader revealShader = Shader.Find("Custom/EcholocationReveal");
+                
+                if (revealShader != null)
+                {
+                    revealMaterial = new Material(revealShader);
+                    revealMaterial.SetColor(RevealColorID, revealColor);
+                    revealMaterial.SetFloat(RevealStrengthID, revealBrightness);
+                    Debug.Log("[EchoReveal] Created reveal material");
+                }
+                else
+                {
+                    Debug.LogWarning("[EchoReveal] EcholocationReveal shader not found!");
+                }
+            }
+        }
+        
         #endregion
 
         #region Detection
@@ -206,6 +261,10 @@ namespace VisionsForetold.Game.Player.Echo
             // Calculate reveal radius
             float objectRadius = Mathf.Max(bounds.extents.magnitude, revealRadius);
 
+            // Get all renderers
+            Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+            List<Renderer> rendererList = new List<Renderer>(renderers);
+
             // Create reveal data
             RevealData data = new RevealData
             {
@@ -214,17 +273,27 @@ namespace VisionsForetold.Game.Player.Echo
                 radius = objectRadius,
                 revealTime = Time.time,
                 endTime = Time.time + revealDuration,
-                bounds = bounds
+                bounds = bounds,
+                renderers = rendererList
             };
 
             revealedObjects[obj] = data;
+            
+            // Apply reveal material if enabled
+            if (applyRevealMaterial && revealMaterial != null)
+            {
+                foreach (Renderer renderer in renderers)
+                {
+                    ApplyRevealMaterial(renderer);
+                }
+            }
 
             if (showDebugLogs)
             {
                 Debug.Log($"[EchoReveal] Revealed: {obj.name} at {bounds.center} (radius: {objectRadius:F1})");
             }
         }
-
+        
         private void UpdateRevealedObjects()
         {
             objectsToRemove.Clear();
@@ -245,10 +314,122 @@ namespace VisionsForetold.Game.Player.Echo
                 {
                     Debug.Log($"[EchoReveal] Hiding: {obj.name}");
                 }
+                
+                // Restore materials before removing
+                RestoreMaterials(obj);
                 revealedObjects.Remove(obj);
             }
         }
-
+        
+        #endregion
+        
+        #region Material Management
+        
+        private void ApplyRevealMaterial(Renderer renderer)
+        {
+            if (renderer == null || materialCache.ContainsKey(renderer))
+                return;
+            
+            // Store original materials
+            MaterialData data = new MaterialData();
+            data.originalMaterials = renderer.sharedMaterials;
+            data.revealMaterials = new Material[data.originalMaterials.Length];
+            
+            // Create reveal material instances
+            for (int i = 0; i < data.originalMaterials.Length; i++)
+            {
+                data.revealMaterials[i] = new Material(revealMaterial);
+                
+                // Copy main texture
+                if (data.originalMaterials[i].HasProperty("_MainTex"))
+                {
+                    Texture mainTex = data.originalMaterials[i].GetTexture("_MainTex");
+                    if (mainTex != null)
+                    {
+                        data.revealMaterials[i].SetTexture("_MainTex", mainTex);
+                    }
+                }
+                
+                // Copy main color
+                if (data.originalMaterials[i].HasProperty("_Color"))
+                {
+                    Color mainColor = data.originalMaterials[i].GetColor("_Color");
+                    data.revealMaterials[i].SetColor("_Color", mainColor);
+                }
+                
+                // Set reveal properties
+                data.revealMaterials[i].SetColor(RevealColorID, revealColor);
+                data.revealMaterials[i].SetFloat(RevealStrengthID, revealBrightness);
+            }
+            
+            materialCache[renderer] = data;
+            renderer.materials = data.revealMaterials;
+        }
+        
+        private void UpdateRevealMaterials()
+        {
+            if (!applyRevealMaterial || revealMaterial == null)
+                return;
+            
+            float currentTime = Time.time;
+            
+            // Update reveal strength based on time
+            foreach (var kvp in revealedObjects)
+            {
+                RevealData data = kvp.Value;
+                float timeAlive = currentTime - data.revealTime;
+                float timeToDeath = data.endTime - currentTime;
+                
+                // Calculate fade
+                float fadeIn = Mathf.Clamp01(timeAlive * 2f); // Fade in over 0.5s
+                float fadeOut = Mathf.Clamp01(timeToDeath / revealDuration); // Fade out
+                float strength = Mathf.Min(fadeIn, fadeOut);
+                
+                // Update materials
+                foreach (Renderer renderer in data.renderers)
+                {
+                    if (renderer != null && materialCache.ContainsKey(renderer))
+                    {
+                        MaterialData matData = materialCache[renderer];
+                        foreach (Material mat in matData.revealMaterials)
+                        {
+                            mat.SetFloat(RevealStrengthID, revealBrightness * strength);
+                        }
+                    }
+                }
+            }
+        }
+        
+        private void RestoreMaterials(GameObject obj)
+        {
+            if (!revealedObjects.ContainsKey(obj))
+                return;
+            
+            RevealData data = revealedObjects[obj];
+            
+            foreach (Renderer renderer in data.renderers)
+            {
+                if (renderer != null && materialCache.ContainsKey(renderer))
+                {
+                    MaterialData matData = materialCache[renderer];
+                    renderer.sharedMaterials = matData.originalMaterials;
+                    materialCache.Remove(renderer);
+                }
+            }
+        }
+        
+        private void RestoreAllMaterials()
+        {
+            foreach (var kvp in materialCache)
+            {
+                if (kvp.Key != null)
+                {
+                    kvp.Key.sharedMaterials = kvp.Value.originalMaterials;
+                }
+            }
+            materialCache.Clear();
+        }
+        
         #endregion
 
         #region Shader Communication
