@@ -8,6 +8,18 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float moveSpeed = 5f;
     [SerializeField] private float rotationSpeed = 720f; // Degrees per second
 
+    [Header("Sprint Settings")]
+    [SerializeField] private bool enableSprint = true;
+    [SerializeField] private float sprintSpeedMultiplier = 1.8f;
+    [SerializeField] private bool requireStamina = true;
+    [SerializeField] private float maxStamina = 100f;
+    [SerializeField] private float staminaDrainRate = 20f; // Stamina per second while sprinting
+    [SerializeField] private float staminaRegenRate = 15f; // Stamina per second when not sprinting
+    [SerializeField] private float staminaRegenDelay = 1f; // Delay before stamina starts regenerating
+    [SerializeField] private float minStaminaToSprint = 10f; // Minimum stamina required to start sprinting
+    [SerializeField] private bool canSprintBackwards = false; // Allow sprinting while moving backwards
+    [SerializeField] private bool canSprintStrafe = true; // Allow sprinting while strafing
+
     [Header("Dodge Settings")]
     [SerializeField] private bool enableDodge = true;
     [SerializeField] private float dodgeDistance = 5f;
@@ -23,9 +35,9 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float gamepadAimRange = 8f; // How far the aim extends from player
 
     [Header("Rotation Behavior")]
-    [SerializeField] private bool alwaysRotateTowardsAim = true; // NEW: Control rotation behavior
-    [SerializeField] private bool rotateTowardsMovementWhenNoAim = false; // Fallback behavior
-    [SerializeField] private float minAimDistance = 0.1f; // Minimum distance to consider aim valid
+    [SerializeField] private bool alwaysRotateTowardsAim = true;
+    [SerializeField] private bool rotateTowardsMovementWhenNoAim = false;
+    [SerializeField] private float minAimDistance = 0.1f;
 
     [Header("Components")]
     [SerializeField] private Rigidbody playerRigidbody;
@@ -41,6 +53,7 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Input Detection")]
     [SerializeField] private float inputSwitchDelay = 0.1f;
+    [SerializeField] private float joystickDeadzone = 0.15f; // Deadzone for joystick input
 
     [Header("Animation Settings")]
     [SerializeField] private float animationSmoothTime = 0.1f;
@@ -51,12 +64,20 @@ public class PlayerMovement : MonoBehaviour
     private Vector2 aimInput;
     private Vector2 mousePosition;
     private Vector2 lastMousePosition;
+    private bool sprintInput;
 
     // Input detection
     private bool isUsingGamepadAim;
     private bool isUsingMouse;
+    private bool isUsingGamepadMovement;
     private float lastGamepadAimTime;
     private float lastMouseMoveTime;
+    private float lastGamepadMovementTime;
+
+    // Sprint state
+    private bool isSprinting;
+    private float currentStamina;
+    private float lastStaminaUseTime;
 
     // Dodge state
     private bool isDodging;
@@ -72,6 +93,7 @@ public class PlayerMovement : MonoBehaviour
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int DodgeHash = Animator.StringToHash("Dodge");
+    private static readonly int IsSprintingHash = Animator.StringToHash("IsSprinting");
 
     // Camera reference
     private Camera mainCamera;
@@ -79,6 +101,10 @@ public class PlayerMovement : MonoBehaviour
     // Public properties
     public Transform AimTarget => aimTarget;
     public bool IsDodging => isDodging;
+    public bool IsSprinting => isSprinting;
+    public float CurrentStamina => currentStamina;
+    public float MaxStamina => maxStamina;
+    public float StaminaPercentage => maxStamina > 0 ? currentStamina / maxStamina : 0f;
 
     private void Awake()
     {
@@ -87,6 +113,7 @@ public class PlayerMovement : MonoBehaviour
         SetupAnimator();
         CreateCameraTarget();
         InitializeAimTarget();
+        InitializeStamina();
     }
 
     private void InitializeComponents()
@@ -108,18 +135,12 @@ public class PlayerMovement : MonoBehaviour
         playerRigidbody.constraints = RigidbodyConstraints.FreezeRotationX |
                                      RigidbodyConstraints.FreezeRotationZ;
 
-        // Set interpolation for smoother movement
         playerRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-
-        // Ensure the Rigidbody doesn't interfere with animations
         playerRigidbody.useGravity = true;
         playerRigidbody.isKinematic = false;
-
-        // Set appropriate drag values to prevent sliding
         playerRigidbody.linearDamping = 5f;
         playerRigidbody.angularDamping = 5f;
 
-        // Ensure mass is reasonable (too low can cause instability)
         if (playerRigidbody.mass < 1f)
             playerRigidbody.mass = 1f;
     }
@@ -128,13 +149,9 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null) return;
 
-        // Critical: Disable root motion to prevent conflicts with Rigidbody
         animator.applyRootMotion = false;
-
-        // Set the Animator to not update position/rotation automatically
         animator.updateMode = AnimatorUpdateMode.Normal;
 
-        // Ensure the Animator Controller is properly set up
         if (animator.runtimeAnimatorController == null)
         {
             Debug.LogWarning("PlayerMovement: No Animator Controller assigned to player!");
@@ -153,7 +170,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void InitializeAimTarget()
     {
-        // Create aim target if it doesn't exist
         if (aimTarget == null)
         {
             GameObject aimObj = new GameObject("AimTarget");
@@ -164,9 +180,13 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            // Just set initial position if aim target already exists
             aimTarget.position = transform.position + transform.forward * mouseSensitivity;
         }
+    }
+
+    private void InitializeStamina()
+    {
+        currentStamina = maxStamina;
     }
 
     private void FixedUpdate()
@@ -179,7 +199,7 @@ public class PlayerMovement : MonoBehaviour
         {
             HandleMovement();
             HandleAiming();
-            HandleRotation(); // NEW: Separate rotation handling
+            HandleRotation();
         }
         
         UpdateCameraTarget();
@@ -188,6 +208,8 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         DetectInputMethod();
+        HandleSprint();
+        UpdateStamina();
         UpdateAnimations();
     }
 
@@ -196,11 +218,34 @@ public class PlayerMovement : MonoBehaviour
     public void OnMove(InputAction.CallbackContext context)
     {
         movementInput = context.ReadValue<Vector2>();
+        
+        // Apply deadzone for joystick
+        if (movementInput.magnitude < joystickDeadzone)
+        {
+            movementInput = Vector2.zero;
+        }
+        else
+        {
+            // Normalize and remap to account for deadzone
+            movementInput = movementInput.normalized * ((movementInput.magnitude - joystickDeadzone) / (1f - joystickDeadzone));
+        }
+        
+        // Track gamepad movement
+        if (movementInput.sqrMagnitude > 0.01f)
+        {
+            lastGamepadMovementTime = Time.time;
+        }
     }
 
     public void OnAim(InputAction.CallbackContext context)
     {
         aimInput = context.ReadValue<Vector2>();
+        
+        // Apply deadzone for joystick
+        if (aimInput.magnitude < joystickDeadzone)
+        {
+            aimInput = Vector2.zero;
+        }
 
         // Detect gamepad aiming
         if (aimInput.sqrMagnitude > 0.01f)
@@ -215,12 +260,20 @@ public class PlayerMovement : MonoBehaviour
     }
 
     /// <summary>
-    /// New Input System action for dodge
+    /// Sprint input - can be button (toggle) or hold
     /// Add this to your Input Actions asset:
-    /// - Action Name: "Dodge"
+    /// - Action Name: "Sprint"
     /// - Action Type: Button
-    /// - Binding: Space (Keyboard), Button East/B (Gamepad)
+    /// - Binding: Left Shift (Keyboard), Left Trigger (Gamepad)
     /// </summary>
+    public void OnSprint(InputAction.CallbackContext context)
+    {
+        if (!enableSprint) return;
+
+        // Hold to sprint (works for both keyboard and gamepad)
+        sprintInput = context.ReadValueAsButton();
+    }
+
     public void OnDodge(InputAction.CallbackContext context)
     {
         if (context.performed && enableDodge && !isDodging)
@@ -243,10 +296,12 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Determine which input method is currently active
-        bool gamepadActive = (Time.time - lastGamepadAimTime) < inputSwitchDelay;
+        bool gamepadAimActive = (Time.time - lastGamepadAimTime) < inputSwitchDelay;
+        bool gamepadMoveActive = (Time.time - lastGamepadMovementTime) < inputSwitchDelay;
         bool mouseActive = (Time.time - lastMouseMoveTime) < inputSwitchDelay;
 
-        if (gamepadActive && aimInput.sqrMagnitude > 0.01f)
+        // Update gamepad aim detection
+        if (gamepadAimActive && aimInput.sqrMagnitude > 0.01f)
         {
             isUsingGamepadAim = true;
             isUsingMouse = false;
@@ -256,83 +311,151 @@ public class PlayerMovement : MonoBehaviour
             isUsingGamepadAim = false;
             isUsingMouse = true;
         }
-        // If neither is active recently, default to mouse for aiming
-        else if (!gamepadActive && !mouseActive)
+        else if (!gamepadAimActive && !mouseActive)
         {
             isUsingMouse = true;
             isUsingGamepadAim = false;
         }
+
+        // Update gamepad movement detection
+        isUsingGamepadMovement = gamepadMoveActive || gamepadAimActive;
+    }
+
+    #endregion
+
+    #region Sprint System
+
+    private void HandleSprint()
+    {
+        if (!enableSprint || isDodging || !CanMove())
+        {
+            isSprinting = false;
+            return;
+        }
+
+        bool wantsToSprint = sprintInput && movementInput.magnitude > 0.1f;
+
+        // Check if player can sprint based on stamina
+        if (requireStamina)
+        {
+            if (wantsToSprint)
+            {
+                // Can only start sprinting if we have minimum stamina
+                if (!isSprinting && currentStamina < minStaminaToSprint)
+                {
+                    wantsToSprint = false;
+                }
+                // Stop sprinting if we run out of stamina
+                else if (isSprinting && currentStamina <= 0)
+                {
+                    wantsToSprint = false;
+                }
+            }
+        }
+
+        // Check movement direction restrictions
+        if (wantsToSprint)
+        {
+            Vector2 normalizedInput = movementInput.normalized;
+            
+            // Check if moving backwards (negative Y input)
+            if (!canSprintBackwards && normalizedInput.y < -0.1f)
+            {
+                wantsToSprint = false;
+            }
+            
+            // Check if strafing (significant X input with little Y)
+            if (!canSprintStrafe && Mathf.Abs(normalizedInput.x) > 0.5f && Mathf.Abs(normalizedInput.y) < 0.5f)
+            {
+                wantsToSprint = false;
+            }
+        }
+
+        isSprinting = wantsToSprint;
+    }
+
+    private void UpdateStamina()
+    {
+        if (!requireStamina) return;
+
+        if (isSprinting)
+        {
+            // Drain stamina while sprinting
+            currentStamina -= staminaDrainRate * Time.deltaTime;
+            currentStamina = Mathf.Max(0, currentStamina);
+            lastStaminaUseTime = Time.time;
+        }
+        else
+        {
+            // Regenerate stamina after delay
+            if (Time.time - lastStaminaUseTime >= staminaRegenDelay)
+            {
+                currentStamina += staminaRegenRate * Time.deltaTime;
+                currentStamina = Mathf.Min(maxStamina, currentStamina);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Get the current movement speed including sprint multiplier
+    /// </summary>
+    private float GetCurrentMoveSpeed()
+    {
+        return isSprinting ? moveSpeed * sprintSpeedMultiplier : moveSpeed;
     }
 
     #endregion
 
     #region Movement
+    
     private void HandleMovement()
     {
-        // Check if player should be able to move (not dead, not stunned, etc.)
         if (!CanMove())
         {
-            // Stop movement but keep physics active
             playerRigidbody.linearVelocity = new Vector3(0, playerRigidbody.linearVelocity.y, 0);
             return;
         }
 
-        // Handle movement (works with both WASD and gamepad automatically)
         Vector2 normalizedInput = movementInput.normalized;
-
-        // Convert input to world space movement (accounting for isometric camera)
         Vector3 worldMovement = GetWorldSpaceMovement(normalizedInput);
 
-        // Apply movement to rigidbody with smoother transitions
-        Vector3 targetVelocity = worldMovement * moveSpeed;
-
-        // Preserve Y velocity (gravity)
+        // Apply movement with sprint modifier
+        float currentSpeed = GetCurrentMoveSpeed();
+        Vector3 targetVelocity = worldMovement * currentSpeed;
         targetVelocity.y = playerRigidbody.linearVelocity.y;
 
-        // Apply velocity smoothly
         playerRigidbody.linearVelocity = Vector3.Lerp(
             playerRigidbody.linearVelocity,
             targetVelocity,
             Time.fixedDeltaTime * 10f
         );
-
-        // Note: Rotation is now handled separately in HandleRotation()
     }
 
     private bool CanMove()
     {
-        // Check if player is dead
         Health playerHealth = GetComponent<Health>();
         if (playerHealth != null && playerHealth.IsDead)
             return false;
-
-        // Check if player is performing an action that should prevent movement
-        // (You can add more conditions here as needed)
 
         return true;
     }
 
     private Vector3 GetWorldSpaceMovement(Vector2 input)
     {
-        // For isometric camera, we need to adjust input based on camera orientation
         if (mainCamera != null)
         {
-            // Get camera forward and right directions, but keep them on the ground plane
             Vector3 cameraForward = mainCamera.transform.forward;
             Vector3 cameraRight = mainCamera.transform.right;
 
-            // Flatten to ground plane
             cameraForward.y = 0;
             cameraRight.y = 0;
 
             cameraForward.Normalize();
             cameraRight.Normalize();
 
-            // Calculate movement direction
             return cameraForward * input.y + cameraRight * input.x;
         }
 
-        // Fallback to basic movement
         return new Vector3(input.x, 0, input.y);
     }
 
@@ -340,60 +463,46 @@ public class PlayerMovement : MonoBehaviour
 
     #region Dodge System
 
-    /// <summary>
-    /// Attempt to perform a dodge
-    /// </summary>
     private void TryPerformDodge()
     {
-        // Check cooldown
         float cooldownRemaining = (lastDodgeTime + dodgeCooldown) - Time.time;
         if (cooldownRemaining > 0)
         {
             return;
         }
 
-        // Determine dodge direction
         if (movementInput.magnitude > 0.1f)
         {
-            // Dodge in the direction we're moving
             dodgeDirection = GetWorldSpaceMovement(movementInput.normalized);
         }
         else
         {
-            // Dodge forward if not moving
             dodgeDirection = transform.forward;
         }
 
         StartDodge();
     }
 
-    /// <summary>
-    /// Start the dodge sequence
-    /// </summary>
     private void StartDodge()
     {
         isDodging = true;
+        isSprinting = false; // Cancel sprint when dodging
         dodgeTimer = 0f;
         lastDodgeTime = Time.time;
 
-        // Trigger dodge animation
         if (animator != null)
         {
             animator.SetTrigger(DodgeHash);
         }
 
-        // Make player invulnerable if enabled
         if (invulnerableDuringDodge && playerHealth != null)
         {
-            // You could implement: playerHealth.SetInvulnerable(true);
+            // playerHealth.SetInvulnerable(true);
         }
 
         Debug.Log($"[PlayerMovement] Dodge started! Direction: {dodgeDirection}");
     }
 
-    /// <summary>
-    /// Handle dodge movement during dodge
-    /// </summary>
     private void HandleDodgeMovement()
     {
         dodgeTimer += Time.fixedDeltaTime;
@@ -405,7 +514,6 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        // Use animation curve for dodge movement
         float curveValue = dodgeCurve.Evaluate(normalizedTime);
         float dodgeSpeed = (dodgeDistance / dodgeDuration) * curveValue;
 
@@ -415,26 +523,19 @@ public class PlayerMovement : MonoBehaviour
         playerRigidbody.linearVelocity = dodgeVelocity;
     }
 
-    /// <summary>
-    /// End the dodge sequence
-    /// </summary>
     private void EndDodge()
     {
         isDodging = false;
         dodgeTimer = 0f;
 
-        // Remove invulnerability
         if (invulnerableDuringDodge && playerHealth != null)
         {
-            // You could implement: playerHealth.SetInvulnerable(false);
+            // playerHealth.SetInvulnerable(false);
         }
 
         Debug.Log("[PlayerMovement] Dodge ended!");
     }
 
-    /// <summary>
-    /// Get remaining dodge cooldown time
-    /// </summary>
     public float GetDodgeCooldownRemaining()
     {
         return Mathf.Max(0, (lastDodgeTime + dodgeCooldown) - Time.time);
@@ -444,9 +545,6 @@ public class PlayerMovement : MonoBehaviour
 
     #region Rotation
 
-    /// <summary>
-    /// NEW: Centralized rotation handling
-    /// </summary>
     private void HandleRotation()
     {
         if (alwaysRotateTowardsAim && aimTarget != null)
@@ -460,15 +558,12 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// NEW: Rotate player to face the aim target
-    /// </summary>
     private void RotateTowardsAim()
     {
         if (aimTarget == null) return;
 
         Vector3 aimDirection = aimTarget.position - transform.position;
-        aimDirection.y = 0; // Keep rotation on horizontal plane only
+        aimDirection.y = 0;
 
         // Check if aim target is far enough to be valid
         if (aimDirection.sqrMagnitude > minAimDistance * minAimDistance)
@@ -482,9 +577,6 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Rotate player to face movement direction (fallback behavior)
-    /// </summary>
     private void RotateTowardsMovement(Vector3 movementDirection)
     {
         if (movementDirection.sqrMagnitude > 0.01f)
@@ -501,6 +593,7 @@ public class PlayerMovement : MonoBehaviour
     #endregion
 
     #region Aiming
+    
     private void HandleAiming()
     {
         if (aimTarget == null) return;
@@ -519,17 +612,11 @@ public class PlayerMovement : MonoBehaviour
     {
         if (aimInput.sqrMagnitude > 0.01f)
         {
-            // Convert gamepad input to world space direction
             Vector3 aimDirection = GetWorldSpaceMovement(aimInput).normalized;
-
-            // Set aim target position
             aimTarget.position = transform.position + aimDirection * gamepadAimRange;
-
-            // Note: Player rotation is now handled in HandleRotation()
         }
         else
         {
-            // No gamepad aim input, keep aim target in front of player
             aimTarget.position = transform.position + transform.forward * gamepadAimRange;
         }
     }
@@ -538,98 +625,79 @@ public class PlayerMovement : MonoBehaviour
     {
         if (mainCamera == null) return;
 
-        // Cast ray from camera through mouse position
         Ray ray = mainCamera.ScreenPointToRay(mousePosition);
 
-        // Raycast against ground plane or objects
         if (Physics.Raycast(ray, out RaycastHit hitInfo))
         {
             aimTarget.position = hitInfo.point;
         }
         else
         {
-            // If no hit, project onto a ground plane
             Plane groundPlane = new Plane(Vector3.up, transform.position);
             if (groundPlane.Raycast(ray, out float distance))
             {
                 aimTarget.position = ray.GetPoint(distance);
             }
         }
-
-        // Note: Player rotation is now handled in HandleRotation()
     }
+    
     #endregion
 
     #region Camera
+    
     private void UpdateCameraTarget()
     {
         if (cameraTarget == null || aimTarget == null) return;
 
-        // Calculate midpoint between player and aim target
         Vector3 playerPos = transform.position;
         Vector3 aimPos = aimTarget.position;
         Vector3 midpoint = (playerPos + aimPos) * 0.5f + cameraOffset;
 
-        // Clamp the midpoint to prevent camera from going too far
         Vector3 directionFromPlayer = midpoint - playerPos;
         if (directionFromPlayer.magnitude > maxCameraDistance)
         {
             midpoint = playerPos + directionFromPlayer.normalized * maxCameraDistance + cameraOffset;
         }
 
-        // Smoothly move camera target to midpoint
         cameraTarget.position = Vector3.Lerp(
             cameraTarget.position,
             midpoint,
             cameraLerpSpeed * Time.fixedDeltaTime
         );
 
-        // Update Cinemachine composer offset if available
         if (positionComposer != null)
         {
             Vector3 aimDirection = (aimPos - playerPos).normalized;
             positionComposer.TargetOffset = aimDirection * (mouseSensitivity * 0.3f);
         }
     }
+    
     #endregion
 
     #region Animation
+    
     private void UpdateAnimations()
     {
         if (animator == null) return;
 
-        // Calculate movement speed for animations
         bool isMoving = movementInput.magnitude > 0.1f && !isDodging;
         float targetSpeed = isMoving ? movementInput.magnitude : 0f;
+        
+        // Multiply by sprint if active
+        if (isSprinting)
+        {
+            targetSpeed *= sprintSpeedMultiplier;
+        }
 
-        // Smooth the animation speed changes
         currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, targetSpeed, Time.deltaTime / animationSmoothTime);
 
-        // Set animation parameters
         animator.SetBool(IsMovingHash, isMoving);
         animator.SetFloat(SpeedHash, currentAnimationSpeed);
+        animator.SetBool(IsSprintingHash, isSprinting);
 
-        // Optional: Set movement direction for blend trees
-        /*if (movementInput.magnitude > 0.1f)
-        {
-            animator.SetFloat("InputX", movementInput.x);
-            animator.SetFloat("InputY", movementInput.y);
-        }
-        else
-        {
-            // Smoothly reduce input values to zero
-            animator.SetFloat("InputX", Mathf.Lerp(animator.GetFloat("InputX"), 0, Time.deltaTime * 5f));
-            animator.SetFloat("InputY", Mathf.Lerp(animator.GetFloat("InputY"), 0, Time.deltaTime * 5f));
-        }*/
-
-        // Track movement state changes
         wasMovingLastFrame = isMoving;
     }
 
-    /// <summary>
-    /// Call this method to trigger specific animations
-    /// </summary>
-    /// <param name="triggerName">Name of the animation trigger</param>
     public void TriggerAnimation(string triggerName)
     {
         if (animator != null)
@@ -638,11 +706,6 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Sets an animation boolean parameter
-    /// </summary>
-    /// <param name="paramName">Parameter name</param>
-    /// <param name="value">Boolean value</param>
     public void SetAnimationBool(string paramName, bool value)
     {
         if (animator != null)
@@ -650,14 +713,11 @@ public class PlayerMovement : MonoBehaviour
             animator.SetBool(paramName, value);
         }
     }
+    
     #endregion
 
     #region Public Methods for External Access
 
-    /// <summary>
-    /// Get the current aim direction (used by PlayerAttack)
-    /// </summary>
-    /// <returns>Normalized aim direction vector</returns>
     public Vector3 GetAimDirection()
     {
         if (aimTarget == null) return transform.forward;
@@ -667,18 +727,43 @@ public class PlayerMovement : MonoBehaviour
         return aimDirection.normalized;
     }
 
-    /// <summary>
-    /// Get the current aim position
-    /// </summary>
-    /// <returns>World position of aim target</returns>
     public Vector3 GetAimPosition()
     {
         return aimTarget != null ? aimTarget.position : transform.position + transform.forward * 5f;
     }
 
+    /// <summary>
+    /// Force sprint on/off (useful for cutscenes, abilities, etc.)
+    /// </summary>
+    public void SetSprintEnabled(bool enabled)
+    {
+        enableSprint = enabled;
+        if (!enabled)
+        {
+            isSprinting = false;
+        }
+    }
+
+    /// <summary>
+    /// Add or remove stamina
+    /// </summary>
+    public void ModifyStamina(float amount)
+    {
+        currentStamina = Mathf.Clamp(currentStamina + amount, 0, maxStamina);
+    }
+
+    /// <summary>
+    /// Fully restore stamina
+    /// </summary>
+    public void RestoreStamina()
+    {
+        currentStamina = maxStamina;
+    }
+
     #endregion
 
     #region Debug
+    
     private void OnDrawGizmosSelected()
     {
         // Draw aim direction
@@ -694,7 +779,7 @@ public class PlayerMovement : MonoBehaviour
         Gizmos.DrawWireSphere(transform.position, maxCameraDistance);
 
         // Draw rotation direction
-        Gizmos.color = Color.green;
+        Gizmos.color = isSprinting ? Color.yellow : Color.green;
         Gizmos.DrawRay(transform.position, transform.forward * 3f);
 
         // Draw dodge direction when dodging
@@ -707,7 +792,6 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnValidate()
     {
-        // Ensure reasonable values in the inspector
         moveSpeed = Mathf.Max(0.1f, moveSpeed);
         rotationSpeed = Mathf.Max(1f, rotationSpeed);
         animationSmoothTime = Mathf.Max(0.01f, animationSmoothTime);
@@ -715,6 +799,16 @@ public class PlayerMovement : MonoBehaviour
         dodgeDistance = Mathf.Max(0.1f, dodgeDistance);
         dodgeDuration = Mathf.Max(0.1f, dodgeDuration);
         dodgeCooldown = Mathf.Max(0f, dodgeCooldown);
+        
+        // Sprint validation
+        sprintSpeedMultiplier = Mathf.Max(1f, sprintSpeedMultiplier);
+        maxStamina = Mathf.Max(1f, maxStamina);
+        staminaDrainRate = Mathf.Max(0f, staminaDrainRate);
+        staminaRegenRate = Mathf.Max(0f, staminaRegenRate);
+        staminaRegenDelay = Mathf.Max(0f, staminaRegenDelay);
+        minStaminaToSprint = Mathf.Clamp(minStaminaToSprint, 0f, maxStamina);
+        joystickDeadzone = Mathf.Clamp(joystickDeadzone, 0f, 0.9f);
     }
+    
     #endregion
 }
