@@ -127,6 +127,7 @@ GameObject:
   - component: {fileID: 8284501078440730793}
   - component: {fileID: 7497841543256341777}
   - component: {fileID: 3932345048134125871}
+  - component: {fileID: -6646332123422317692}
   m_Layer: 0
   m_Name: Ghoul_Basic
   m_TagString: Enemy
@@ -277,3 +278,19 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &-6646332123422317692
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6769749428951730916}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 422586572bfae014f95064cb79c53ef2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyXPReward
+  xpReward: 25
+  xpRewardMin: 20
+  xpRewardMax: 30
+  randomizeReward: 0

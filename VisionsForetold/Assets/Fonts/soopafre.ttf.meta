@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 53daef4e339f232419239ed296efa128
+guid: a56d88fa212e6ab42b775f75ce1631bf
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - Old England Gothic
+  - Soopafresh
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0
