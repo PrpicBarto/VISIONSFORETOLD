@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 9178171407562133280}
   - component: {fileID: 8255294054845524641}
   - component: {fileID: 6052669955942131793}
+  - component: {fileID: 5423361836360983365}
   m_Layer: 0
   m_Name: Spectre
   m_TagString: Untagged
@@ -167,6 +168,22 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &5423361836360983365
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3988809582211035481}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 422586572bfae014f95064cb79c53ef2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyXPReward
+  xpReward: 25
+  xpRewardMin: 20
+  xpRewardMax: 30
+  randomizeReward: 0
 --- !u!1 &6767272123224241178
 GameObject:
   m_ObjectHideFlags: 0

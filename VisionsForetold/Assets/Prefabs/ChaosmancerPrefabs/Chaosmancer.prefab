@@ -127,6 +127,7 @@ GameObject:
   - component: {fileID: 2255594226631542742}
   - component: {fileID: 3083536068394567593}
   - component: {fileID: 8983923472902095800}
+  - component: {fileID: -5986776847197665906}
   m_Layer: 0
   m_Name: Chaosmancer
   m_TagString: Enemy
@@ -291,6 +292,22 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemyXPReward
   xpReward: 150
+  xpRewardMin: 20
+  xpRewardMax: 30
+  randomizeReward: 0
+--- !u!114 &-5986776847197665906
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5426270598873701134}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 422586572bfae014f95064cb79c53ef2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyXPReward
+  xpReward: 25
   xpRewardMin: 20
   xpRewardMax: 30
   randomizeReward: 0
