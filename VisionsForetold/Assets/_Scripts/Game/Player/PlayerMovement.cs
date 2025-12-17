@@ -88,12 +88,32 @@ public class PlayerMovement : MonoBehaviour
     // Animation variables
     private float currentAnimationSpeed;
     private bool wasMovingLastFrame;
+    private bool isLowHealth;
+    private float lastHealthPercentage = 1f;
 
-    // Animation parameter hashes
+    // Animation parameter hashes - Movement
     private static readonly int IsMovingHash = Animator.StringToHash("IsMoving");
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
     private static readonly int DodgeHash = Animator.StringToHash("Dodge");
     private static readonly int IsSprintingHash = Animator.StringToHash("IsSprinting");
+    private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+    
+    // Animation parameter hashes - Combat
+    private static readonly int AttackHash = Animator.StringToHash("Attack");
+    private static readonly int AttackBowHash = Animator.StringToHash("AttackBow");
+    private static readonly int SpellFireballHash = Animator.StringToHash("SpellFireball");
+    private static readonly int SpellIceHash = Animator.StringToHash("SpellIce");
+    
+    // Animation parameter hashes - States
+    private static readonly int WalkHash = Animator.StringToHash("Walk");
+    private static readonly int WalkHurtHash = Animator.StringToHash("WalkHurt");
+    private static readonly int HurtHash = Animator.StringToHash("Hurt");
+    private static readonly int IdleHash = Animator.StringToHash("Idle");
+    private static readonly int DashHash = Animator.StringToHash("Dash");
+    
+    // Animation parameter hashes - Health
+    private static readonly int IsLowHealthHash = Animator.StringToHash("IsLowHealth");
+    private static readonly int HealthPercentageHash = Animator.StringToHash("HealthPercentage");
 
     // Camera reference
     private Camera mainCamera;
@@ -102,9 +122,12 @@ public class PlayerMovement : MonoBehaviour
     public Transform AimTarget => aimTarget;
     public bool IsDodging => isDodging;
     public bool IsSprinting => isSprinting;
+    public bool IsRunning => currentAnimationSpeed > 1.2f && movementInput.magnitude > 0.1f;
     public float CurrentStamina => currentStamina;
     public float MaxStamina => maxStamina;
     public float StaminaPercentage => maxStamina > 0 ? currentStamina / maxStamina : 0f;
+    public bool IsLowHealth => isLowHealth;
+    public float HealthPercentage => playerHealth != null ? playerHealth.HealthPercentage : 1f;
 
     private void Awake()
     {
@@ -691,12 +714,170 @@ public class PlayerMovement : MonoBehaviour
 
         currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, targetSpeed, Time.deltaTime / animationSmoothTime);
 
+        // Determine if running (at max speed)
+        // Run animation plays when Speed is above walk threshold (typically > 1.0)
+        bool isRunning = isMoving && currentAnimationSpeed > 1.2f;
+
+        // Update movement animations
         animator.SetBool(IsMovingHash, isMoving);
         animator.SetFloat(SpeedHash, currentAnimationSpeed);
         animator.SetBool(IsSprintingHash, isSprinting);
+        animator.SetBool(IsRunningHash, isRunning);
+
+        // Update health-based animations
+        UpdateHealthAnimations();
 
         wasMovingLastFrame = isMoving;
     }
+
+    private void UpdateHealthAnimations()
+    {
+        if (playerHealth == null || animator == null) return;
+
+        float healthPercentage = playerHealth.HealthPercentage;
+        
+        // Update health percentage for animator (useful for blend trees)
+        animator.SetFloat(HealthPercentageHash, healthPercentage);
+
+        // Check for low health state (below 30%)
+        bool currentlyLowHealth = healthPercentage <= 0.3f;
+        
+        if (currentlyLowHealth != isLowHealth)
+        {
+            isLowHealth = currentlyLowHealth;
+            animator.SetBool(IsLowHealthHash, isLowHealth);
+            
+            if (isLowHealth)
+            {
+                Debug.Log("[PlayerMovement] Entered low health state - switching to hurt animations");
+            }
+        }
+
+        lastHealthPercentage = healthPercentage;
+    }
+
+    // Combat Animation Triggers
+    
+    /// <summary>
+    /// Trigger melee attack animation
+    /// Called from PlayerAttack script when performing melee attack
+    /// </summary>
+    public void TriggerAttack()
+    {
+        if (animator == null)
+        {
+            Debug.LogWarning("[PlayerMovement] Animator component is missing!");
+            return;
+        }
+
+        if (animator.runtimeAnimatorController == null)
+        {
+            Debug.LogWarning("[PlayerMovement] No AnimatorController assigned to Animator! Please assign one in the Inspector.");
+            return;
+        }
+
+        if (!isDodging)
+        {
+            // Reset trigger first to ensure clean state
+            animator.ResetTrigger(AttackHash);
+            animator.SetTrigger(AttackHash);
+            Debug.Log("[PlayerMovement] Triggered Attack animation");
+        }
+    }
+
+    /// <summary>
+    /// Trigger bow/ranged attack animation
+    /// Called from PlayerAttack script when performing ranged attack
+    /// </summary>
+    public void TriggerAttackBow()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        if (!isDodging)
+        {
+            // Reset trigger first to ensure clean state (fixes single-trigger issue)
+            animator.ResetTrigger(AttackBowHash);
+            
+            // Then set the trigger
+            animator.SetTrigger(AttackBowHash);
+            Debug.Log("[PlayerMovement] Triggered AttackBow animation");
+        }
+    }
+
+    public void OnAttackBowComplete()
+    {
+        Debug.Log("[PlayerMovement] AttackBow animation completed");
+
+        // Reset trigger to ensure it can fire again
+        if (animator != null)
+        {
+            animator.ResetTrigger(AttackBowHash);
+        }
+    }
+
+
+    /// <summary>
+    /// Trigger fireball spell animation
+    /// Called from PlayerAttack script when casting fireball spell
+    /// </summary>
+    public void TriggerSpellFireball()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        if (!isDodging)
+        {
+            animator.ResetTrigger(SpellFireballHash);
+            animator.SetTrigger(SpellFireballHash);
+            Debug.Log("[PlayerMovement] Triggered SpellFireball animation");
+        }
+    }
+
+    /// <summary>
+    /// Trigger ice spell animation
+    /// Called from PlayerAttack script when casting ice spell
+    /// </summary>
+    public void TriggerSpellIce()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        if (!isDodging)
+        {
+            animator.ResetTrigger(SpellIceHash);
+            animator.SetTrigger(SpellIceHash);
+            Debug.Log("[PlayerMovement] Triggered SpellIce animation");
+        }
+    }
+
+    /// <summary>
+    /// Trigger hurt/damage animation when player takes damage
+    /// Should be called from Health script's TakeDamage method
+    /// </summary>
+    public void TriggerHurt()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        animator.ResetTrigger(HurtHash);
+        animator.SetTrigger(HurtHash);
+        Debug.Log("[PlayerMovement] Triggered Hurt animation");
+    }
+
+    /// <summary>
+    /// Trigger dash animation (alternative to dodge roll)
+    /// Can be used for faster, more aggressive movement
+    /// </summary>
+    public void TriggerDash()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        if (!isDodging)
+        {
+            animator.ResetTrigger(DashHash);
+            animator.SetTrigger(DashHash);
+            Debug.Log("[PlayerMovement] Triggered Dash animation");
+        }
+    }
+
+    // Generic Animation Control Methods
 
     public void TriggerAnimation(string triggerName)
     {
@@ -711,6 +892,14 @@ public class PlayerMovement : MonoBehaviour
         if (animator != null)
         {
             animator.SetBool(paramName, value);
+        }
+    }
+
+    public void SetAnimationFloat(string paramName, float value)
+    {
+        if (animator != null)
+        {
+            animator.SetFloat(paramName, value);
         }
     }
     
@@ -789,6 +978,7 @@ public class PlayerMovement : MonoBehaviour
             Gizmos.DrawRay(transform.position, dodgeDirection * dodgeDistance);
         }
     }
+
 
     private void OnValidate()
     {
