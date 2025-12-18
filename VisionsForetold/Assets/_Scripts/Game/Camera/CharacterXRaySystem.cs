@@ -181,33 +181,78 @@ public class CharacterXRaySystem : MonoBehaviour
 
     private void RegisterCharacter(Renderer renderer)
     {
+        if (renderer == null)
+            return;
+            
         if (trackedCharacters.ContainsKey(renderer))
             return;
 
+        // Check if xrayMaterial is assigned
+        if (xrayMaterial == null)
+        {
+            Debug.LogError("[CharacterXRay] X-Ray material is not assigned! Please assign it in the Inspector or ensure the shader exists.");
+            return;
+        }
+
         XRayData data = new XRayData();
         data.originalMaterials = renderer.sharedMaterials;
+        
+        if (data.originalMaterials == null || data.originalMaterials.Length == 0)
+        {
+            Debug.LogWarning($"[CharacterXRay] Renderer on {renderer.name} has no materials. Skipping.");
+            return;
+        }
+        
         data.xrayMaterials = new Material[data.originalMaterials.Length];
         
         // Create x-ray materials for each material slot
         for (int i = 0; i < data.originalMaterials.Length; i++)
         {
-            data.xrayMaterials[i] = new Material(xrayMaterial);
-            
-            // Copy main texture
-            if (data.originalMaterials[i].HasProperty("_MainTex"))
+            // Skip null materials
+            if (data.originalMaterials[i] == null)
             {
-                Texture mainTex = data.originalMaterials[i].GetTexture("_MainTex");
-                if (mainTex != null)
+                Debug.LogWarning($"[CharacterXRay] Material at index {i} is null on {renderer.name}. Skipping this slot.");
+                data.xrayMaterials[i] = null;
+                continue;
+            }
+
+            try
+            {
+                data.xrayMaterials[i] = new Material(xrayMaterial);
+                
+                // Copy main texture if it exists
+                if (data.originalMaterials[i].HasProperty("_MainTex"))
                 {
-                    data.xrayMaterials[i].SetTexture("_MainTex", mainTex);
+                    Texture mainTex = data.originalMaterials[i].GetTexture("_MainTex");
+                    if (mainTex != null && data.xrayMaterials[i] != null)
+                    {
+                        data.xrayMaterials[i].SetTexture("_MainTex", mainTex);
+                    }
+                }
+                
+                // Copy main color if it exists
+                if (data.originalMaterials[i].HasProperty("_Color"))
+                {
+                    Color mainColor = data.originalMaterials[i].GetColor("_Color");
+                    if (data.xrayMaterials[i] != null)
+                    {
+                        data.xrayMaterials[i].SetColor("_Color", mainColor);
+                    }
+                }
+                // Try BaseColor for URP materials
+                else if (data.originalMaterials[i].HasProperty("_BaseColor"))
+                {
+                    Color baseColor = data.originalMaterials[i].GetColor("_BaseColor");
+                    if (data.xrayMaterials[i] != null)
+                    {
+                        data.xrayMaterials[i].SetColor("_Color", baseColor);
+                    }
                 }
             }
-            
-            // Copy main color
-            if (data.originalMaterials[i].HasProperty("_Color"))
+            catch (System.Exception e)
             {
-                Color mainColor = data.originalMaterials[i].GetColor("_Color");
-                data.xrayMaterials[i].SetColor("_Color", mainColor);
+                Debug.LogError($"[CharacterXRay] Failed to create x-ray material for {renderer.name} at index {i}: {e.Message}");
+                data.xrayMaterials[i] = null;
             }
         }
         
@@ -220,24 +265,40 @@ public class CharacterXRaySystem : MonoBehaviour
         if (!includeEnemies) return;
         
         enemyTargets.Clear();
-        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
         
-        foreach (GameObject enemy in enemies)
+        try
         {
-            if (enemy != null && enemy.activeInHierarchy)
+            GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
+            
+            foreach (GameObject enemy in enemies)
             {
-                enemyTargets.Add(enemy.transform);
-                
-                // Register enemy renderers
-                Renderer[] renderers = enemy.GetComponentsInChildren<Renderer>();
-                foreach (Renderer renderer in renderers)
+                if (enemy != null && enemy.activeInHierarchy)
                 {
-                    if (renderer != null && renderer.enabled && !trackedCharacters.ContainsKey(renderer))
+                    enemyTargets.Add(enemy.transform);
+                    
+                    // Register enemy renderers
+                    Renderer[] renderers = enemy.GetComponentsInChildren<Renderer>();
+                    if (renderers != null && renderers.Length > 0)
                     {
-                        RegisterCharacter(renderer);
+                        foreach (Renderer renderer in renderers)
+                        {
+                            if (renderer != null && renderer.enabled && !trackedCharacters.ContainsKey(renderer))
+                            {
+                                RegisterCharacter(renderer);
+                            }
+                        }
                     }
                 }
             }
+        }
+        catch (UnityException)
+        {
+            // Tag doesn't exist - this is normal if no enemies are tagged yet
+            Debug.LogWarning($"[CharacterXRay] Tag '{enemyTag}' not found. Create the tag or assign it to enemy objects.");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"[CharacterXRay] Error updating enemy list: {e.Message}");
         }
     }
 
@@ -321,28 +382,52 @@ public class CharacterXRaySystem : MonoBehaviour
 
     private void UpdateCharacterMaterials(Transform character, bool isOccluded)
     {
+        if (character == null)
+            return;
+            
         Renderer[] renderers = character.GetComponentsInChildren<Renderer>();
         
         foreach (Renderer renderer in renderers)
         {
-            if (!trackedCharacters.ContainsKey(renderer))
+            if (renderer == null || !trackedCharacters.ContainsKey(renderer))
                 continue;
 
             XRayData data = trackedCharacters[renderer];
+            
+            if (data == null || data.xrayMaterials == null || data.originalMaterials == null)
+            {
+                Debug.LogWarning($"[CharacterXRay] Invalid data for renderer {renderer.name}. Skipping.");
+                continue;
+            }
             
             if (isOccluded != data.isOccluded)
             {
                 data.isOccluded = isOccluded;
                 
-                if (isOccluded)
+                try
                 {
-                    // Switch to x-ray materials
-                    renderer.materials = data.xrayMaterials;
+                    if (isOccluded)
+                    {
+                        // Switch to x-ray materials (filter out nulls)
+                        Material[] validXRayMaterials = new Material[data.xrayMaterials.Length];
+                        for (int i = 0; i < data.xrayMaterials.Length; i++)
+                        {
+                            // Use x-ray material if available, otherwise fall back to original
+                            validXRayMaterials[i] = data.xrayMaterials[i] != null 
+                                ? data.xrayMaterials[i] 
+                                : data.originalMaterials[i];
+                        }
+                        renderer.materials = validXRayMaterials;
+                    }
+                    else
+                    {
+                        // Restore original materials
+                        renderer.sharedMaterials = data.originalMaterials;
+                    }
                 }
-                else
+                catch (System.Exception e)
                 {
-                    // Restore original materials
-                    renderer.sharedMaterials = data.originalMaterials;
+                    Debug.LogError($"[CharacterXRay] Failed to update materials for {renderer.name}: {e.Message}");
                 }
             }
         }
@@ -356,9 +441,16 @@ public class CharacterXRaySystem : MonoBehaviour
     {
         foreach (var kvp in trackedCharacters)
         {
-            if (kvp.Key != null)
+            if (kvp.Key != null && kvp.Value != null && kvp.Value.originalMaterials != null)
             {
-                kvp.Key.sharedMaterials = kvp.Value.originalMaterials;
+                try
+                {
+                    kvp.Key.sharedMaterials = kvp.Value.originalMaterials;
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[CharacterXRay] Failed to restore materials for {kvp.Key.name}: {e.Message}");
+                }
             }
         }
         trackedCharacters.Clear();

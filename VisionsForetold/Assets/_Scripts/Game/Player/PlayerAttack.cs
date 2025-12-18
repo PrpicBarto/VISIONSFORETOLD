@@ -274,6 +274,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void PerformMeleeAttack()
     {
+        // Trigger melee attack animation
+        if (playerMovement != null)
+        {
+            playerMovement.TriggerAttack();
+        }
+
         // Check if combo window has expired
         if (Time.time > lastComboHitTime + comboWindow && currentComboStep > 0)
         {
@@ -332,7 +338,7 @@ public class PlayerAttack : MonoBehaviour
     /// </summary>
     /// <param name="damage">Damage to deal to each enemy</param>
     /// <param name="isCritical">Is this a critical/final hit?</param>
-    /// <returns>Number of enemies hit</returns>
+    /// <returns>True if position is in cone</returns>
     private int PerformConeAttack(int damage, bool isCritical)
     {
         Vector3 attackOrigin = transform.position + Vector3.up * 0.5f;
@@ -430,6 +436,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void PerformRangedAttack()
     {
+        // Trigger bow attack animation
+        if (playerMovement != null)
+        {
+            playerMovement.TriggerAttackBow();
+        }
+
         if (arrowProjectilePrefab == null)
         {
             Debug.LogWarning("Arrow projectile prefab not assigned!");
@@ -551,6 +563,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastFireball()
     {
+        // Trigger fireball spell animation
+        if (playerMovement != null)
+        {
+            playerMovement.TriggerSpellFireball();
+        }
+
         if (fireballProjectilePrefab != null)
         {
             Vector3 castDirection = GetShootDirection();
@@ -608,6 +626,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastIceBlast()
     {
+        // Trigger ice spell animation
+        if (playerMovement != null)
+        {
+            playerMovement.TriggerSpellIce();
+        }
+
         if (iceBlastProjectilePrefab != null)
         {
             Vector3 castDirection = GetShootDirection();
