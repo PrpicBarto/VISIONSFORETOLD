@@ -74,6 +74,14 @@ public class WorldHealthBar : MonoBehaviour
 
     private void Update()
     {
+        // Check if target health or GameObject is destroyed
+        if (targetHealth == null)
+        {
+            // Target destroyed, destroy health bar too
+            Destroy(gameObject);
+            return;
+        }
+
         FaceCamera();
 
         if (smoothTransition && healthBarFill != null)
@@ -149,7 +157,13 @@ public class WorldHealthBar : MonoBehaviour
     
     private void FaceCamera()
     {
-        if (mainCamera == null || canvas == null) return;
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+            if (mainCamera == null) return;
+        }
+
+        if (canvas == null || transform == null) return;
 
         transform.rotation = Quaternion.LookRotation(transform.position - mainCamera.transform.position);
     }
@@ -167,6 +181,10 @@ public class WorldHealthBar : MonoBehaviour
     private void OnDeath()
     {
         SetVisibility(false);
+        
+        // Destroy health bar shortly after death
+        // Small delay to allow death animation/sound to play
+        Destroy(gameObject, 0.1f);
     }
     
     private void OnDestroy()
