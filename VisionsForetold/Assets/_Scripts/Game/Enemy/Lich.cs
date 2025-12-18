@@ -27,9 +27,11 @@ namespace _Scripts.Game.Enemy
         if (health != null) health.SetMaxHealth(120, false);
         if (agent != null) agent.speed = moveSpeed;
     }
+    
     protected override void Update()
     {
         base.Update();
+        // Animations are updated in base.Update() automatically
     }
 
     protected override void UpdateBehavior(float distanceToPlayer)
@@ -73,6 +75,9 @@ namespace _Scripts.Game.Enemy
 
     private void SummonMinions()
     {
+        // Trigger spawn animation
+        TriggerSpawnAnimation();
+        
         StartCoroutine(SummonMinionsOverTime());
     }
 
@@ -112,6 +117,9 @@ namespace _Scripts.Game.Enemy
     private void CastHellfire()
     {
         LookAtPlayer();
+        
+        // Trigger attack animation
+        TriggerAttackAnimation();
         
         if (hellfirePrefab != null)
         {

@@ -72,6 +72,16 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float animationSmoothTime = 0.1f;
     [SerializeField] private bool useAnimationEvents = false;
 
+    [Header("Attack Movement Lock Settings")]
+    [Tooltip("Lock player movement during attacks")]
+    [SerializeField] private bool lockMovementDuringAttacks = true;
+    [Tooltip("How long to lock movement for melee attacks (should match animation length)")]
+    [SerializeField] private float meleeAttackDuration = 0.6f;
+    [Tooltip("How long to lock movement for bow attacks")]
+    [SerializeField] private float bowAttackDuration = 0.8f;
+    [Tooltip("How long to lock movement for spell casts")]
+    [SerializeField] private float spellCastDuration = 0.7f;
+
     // Input variables
     private Vector2 movementInput;
     private Vector2 aimInput;
@@ -500,8 +510,13 @@ public class PlayerMovement : MonoBehaviour
 
     private bool CanMove()
     {
+        // Can't move if dead
         Health playerHealth = GetComponent<Health>();
         if (playerHealth != null && playerHealth.IsDead)
+            return false;
+
+        // Can't move while attacking (locked in place for attack animations)
+        if (isAttacking)
             return false;
 
         return true;
@@ -986,8 +1001,15 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
         
-        // Mark as attacking for rotation
-        SetAttackingState(true);
+        // Lock movement during attack if enabled
+        if (lockMovementDuringAttacks)
+        {
+            SetAttackingStateWithDuration(meleeAttackDuration);
+        }
+        else
+        {
+            SetAttackingState(true);
+        }
         
         // Update combo step parameter for blend trees/state machines
         animator.SetInteger(ComboStepHash, comboStep);
@@ -998,17 +1020,17 @@ public class PlayerMovement : MonoBehaviour
             case 1:
                 animator.ResetTrigger(Attack1Hash);
                 animator.SetTrigger(Attack1Hash);
-                Debug.Log("[PlayerMovement] Triggered Attack1 (Combo 1/3)");
+                Debug.Log("[PlayerMovement] Triggered Attack1 (Combo 1/3) - Movement locked");
                 break;
             case 2:
                 animator.ResetTrigger(Attack2Hash);
                 animator.SetTrigger(Attack2Hash);
-                Debug.Log("[PlayerMovement] Triggered Attack2 (Combo 2/3)");
+                Debug.Log("[PlayerMovement] Triggered Attack2 (Combo 2/3) - Movement locked");
                 break;
             case 3:
                 animator.ResetTrigger(Attack3Hash);
                 animator.SetTrigger(Attack3Hash);
-                Debug.Log("[PlayerMovement] Triggered Attack3 (Combo 3/3 - FINISHER)");
+                Debug.Log("[PlayerMovement] Triggered Attack3 (Combo 3/3 - FINISHER) - Movement locked");
                 break;
             default:
                 // Fallback to generic attack
@@ -1038,15 +1060,22 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        // Mark as attacking for rotation
-        SetAttackingState(true);
+        // Lock movement during bow attack if enabled
+        if (lockMovementDuringAttacks)
+        {
+            SetAttackingStateWithDuration(bowAttackDuration);
+        }
+        else
+        {
+            SetAttackingState(true);
+        }
 
         // Reset trigger first to ensure clean state (fixes single-trigger issue)
         animator.ResetTrigger(AttackBowHash);
         
         // Then set the trigger
         animator.SetTrigger(AttackBowHash);
-        Debug.Log("[PlayerMovement] Triggered AttackBow animation");
+        Debug.Log("[PlayerMovement] Triggered AttackBow animation - Movement locked");
     }
 
     /// <summary>
@@ -1057,12 +1086,19 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        // Mark as attacking for rotation
-        SetAttackingState(true);
+        // Lock movement during spell cast if enabled
+        if (lockMovementDuringAttacks)
+        {
+            SetAttackingStateWithDuration(spellCastDuration);
+        }
+        else
+        {
+            SetAttackingState(true);
+        }
 
         animator.ResetTrigger(SpellFireballHash);
         animator.SetTrigger(SpellFireballHash);
-        Debug.Log("[PlayerMovement] Triggered SpellFireball animation");
+        Debug.Log("[PlayerMovement] Triggered SpellFireball animation - Movement locked");
     }
 
     /// <summary>
@@ -1073,12 +1109,19 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        // Mark as attacking for rotation
-        SetAttackingState(true);
+        // Lock movement during spell cast if enabled
+        if (lockMovementDuringAttacks)
+        {
+            SetAttackingStateWithDuration(spellCastDuration);
+        }
+        else
+        {
+            SetAttackingState(true);
+        }
 
         animator.ResetTrigger(SpellIceHash);
         animator.SetTrigger(SpellIceHash);
-        Debug.Log("[PlayerMovement] Triggered SpellIce animation");
+        Debug.Log("[PlayerMovement] Triggered SpellIce animation - Movement locked");
     }
 
     /// <summary>
@@ -1202,7 +1245,7 @@ public class PlayerMovement : MonoBehaviour
     }
 
     /// <summary>
-    /// Set the attacking state (for rotation control)
+    /// Set the attacking state (for rotation control and movement lock)
     /// Called automatically by attack triggers
     /// </summary>
     public void SetAttackingState(bool attacking)
@@ -1211,12 +1254,43 @@ public class PlayerMovement : MonoBehaviour
         if (attacking)
         {
             lastAttackTime = Time.time;
-            Debug.Log("[PlayerMovement] Entered attacking state - rotating to aim target");
+            
+            // Stop player movement when entering attack state
+            if (playerRigidbody != null)
+            {
+                Vector3 velocity = playerRigidbody.linearVelocity;
+                velocity.x = 0;
+                velocity.z = 0;
+                playerRigidbody.linearVelocity = velocity;
+            }
+            
+            Debug.Log("[PlayerMovement] Entered attacking state - movement locked, rotating to aim target");
         }
         else
         {
-            Debug.Log("[PlayerMovement] Exited attacking state - rotating to movement direction");
+            Debug.Log("[PlayerMovement] Exited attacking state - movement unlocked");
         }
+    }
+
+    /// <summary>
+    /// Set attacking state with automatic timeout
+    /// </summary>
+    /// <param name="duration">How long to lock movement (should match animation length)</param>
+    public void SetAttackingStateWithDuration(float duration)
+    {
+        SetAttackingState(true);
+        
+        // Cancel any existing end attack coroutine
+        StopCoroutine(nameof(EndAttackAfterDelay));
+        
+        // Schedule ending attack state
+        StartCoroutine(EndAttackAfterDelay(duration));
+    }
+
+    private System.Collections.IEnumerator EndAttackAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        SetAttackingState(false);
     }
 
     /// <summary>

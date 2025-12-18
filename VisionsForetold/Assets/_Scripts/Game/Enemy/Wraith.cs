@@ -29,9 +29,11 @@ namespace _Scripts.Game.Enemy
             base.Awake();
             ConfigureWraithType();
         }
+        
         protected override void Update()
         {
             base.Update();
+            // Animations are updated in base.Update() automatically
         }
 
         private void ConfigureWraithType()
@@ -93,6 +95,9 @@ namespace _Scripts.Game.Enemy
         {
             LookAtPlayer();
 
+            // Trigger attack animation
+            TriggerAttackAnimation();
+
             Health playerHealth = player.GetComponent<Health>();
             if (playerHealth != null)
             {
@@ -109,27 +114,21 @@ namespace _Scripts.Game.Enemy
 
         private void MagicExplosion()
         {
+            LookAtPlayer();
+
+            // Trigger attack animation
+            TriggerAttackAnimation();
+
             if (magicExplosionPrefab != null)
             {
-                Vector3 targetPos = player.position;
-                targetPos.y += 0.5f;
-                GameObject explosion = Instantiate(magicExplosionPrefab, targetPos, Quaternion.identity);
+                Vector3 spawnPos = player.position;
+                Instantiate(magicExplosionPrefab, spawnPos, Quaternion.identity);
+            }
 
-                // Deal AOE damage
-                Collider[] hits = Physics.OverlapSphere(targetPos, 3f);
-                foreach (var hit in hits)
-                {
-                    if (hit.CompareTag("Player"))
-                    {
-                        Health playerHealth = hit.GetComponent<Health>();
-                        if (playerHealth != null)
-                        {
-                            playerHealth.TakeDamage(explosionDamage);
-                        }
-                    }
-                }
-
-                Destroy(explosion, 2f);
+            Health playerHealth = player.GetComponent<Health>();
+            if (playerHealth != null)
+            {
+                playerHealth.TakeDamage(explosionDamage);
             }
         }
     }

@@ -26,9 +26,11 @@ namespace _Scripts.Game.Enemy
         base.Awake();
         ConfigureRevenantType();
     }
+    
     protected override void Update()
     {
         base.Update();
+        // Animations are updated in base.Update() automatically
     }
 
     private void ConfigureRevenantType()
@@ -77,6 +79,8 @@ namespace _Scripts.Game.Enemy
     {
         Collider[] nearbyEnemies = Physics.OverlapSphere(transform.position, supportRange);
         
+        bool didHeal = false;
+        
         foreach (var col in nearbyEnemies)
         {
             if (col.CompareTag("Enemy") && col.gameObject != gameObject)
@@ -87,6 +91,7 @@ namespace _Scripts.Game.Enemy
                     if (enemyHealth != null && !enemyHealth.IsAtFullHealth)
                     {
                         enemyHealth.Heal(healAmount);
+                        didHeal = true;
                         Debug.Log($"Revenant healed {col.name} for {healAmount}");
                     }
                 }
@@ -94,9 +99,14 @@ namespace _Scripts.Game.Enemy
                 {
                     // Apply attack buff - implementirati buff system
                     Debug.Log($"Revenant buffed {col.name}'s attack!");
-                    
                 }
             }
+        }
+        
+        // Trigger heal animation if we healed someone
+        if (didHeal)
+        {
+            TriggerHealAnimation();
         }
     }
     }

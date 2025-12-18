@@ -32,9 +32,11 @@ namespace _Scripts.Game.Enemy
             if (firePoint == null) firePoint = transform;
             ConfigureGhostType();
         }
+        
         protected override void Update()
         {
             base.Update();
+            // Animations are updated in base.Update() automatically
         }
 
         private void ConfigureGhostType()
@@ -98,6 +100,9 @@ namespace _Scripts.Game.Enemy
         {
             if (soulBlastPrefab == null) return;
 
+            // Trigger attack animation
+            TriggerAttackAnimation();
+
             Vector3 direction = (player.position - firePoint.position).normalized;
             GameObject projectile = Instantiate(soulBlastPrefab, firePoint.position,
                 Quaternion.LookRotation(direction));
@@ -117,6 +122,3 @@ namespace _Scripts.Game.Enemy
         }
     }
 }
-
-
-    
