@@ -29,6 +29,7 @@ namespace _Scripts.Game.Enemy
         protected override void Update()
         {
             base.Update();
+            // Animations are updated in base.Update() automatically
         }
         
         private void ConfigureGhoulType()
@@ -90,6 +91,9 @@ namespace _Scripts.Game.Enemy
             
             LookAtPlayer();
             
+            // Trigger attack animation using base class method
+            TriggerAttackAnimation();
+            
             Health playerHealth = player.GetComponent<Health>();
             if (playerHealth != null)
             {
@@ -97,7 +101,6 @@ namespace _Scripts.Game.Enemy
                 lastAttackTime = Time.time; // Reset cooldown
                 Debug.Log($"Ghoul ({ghoulType}) bit player for {biteDamage} damage!");
             }
-            
         }
     }
 }

@@ -25,9 +25,11 @@ namespace _Scripts.Game.Enemy
         if (health != null) health.SetMaxHealth(100, false);
         if (agent != null) agent.speed = moveSpeed;
     }
+    
     protected override void Update()
     {
         base.Update();
+        // Animations are updated in base.Update() automatically
     }
 
     protected override void UpdateBehavior(float distanceToPlayer)
@@ -73,6 +75,9 @@ namespace _Scripts.Game.Enemy
 
     private void Shockwave()
     {
+        // Trigger attack animation
+        TriggerAttackAnimation();
+
         Collider[] hits = Physics.OverlapSphere(transform.position, shockwaveRange);
         
         foreach (var hit in hits)

@@ -56,6 +56,8 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private Transform projectileSpawnPoint;
     [SerializeField] private float projectileSpeed = 20f;
     [SerializeField] private float projectileLifetime = 5f;
+    [SerializeField] private float arrowFireDelay = 0.5f; // Delay before arrow fires (sync with animation)
+    [SerializeField] private float spellCastDelay = 0.3f; // Delay before spell fires
 
     [Header("Aiming Settings")]
     [SerializeField] private bool useAimTarget = true; // Whether to use aim target or player forward
@@ -187,7 +189,7 @@ public class PlayerAttack : MonoBehaviour
         // Unsubscribe from input events
         if (scrollWheelAction != null) scrollWheelAction.performed -= OnScrollWheel;
         if (nextSpellAction != null) nextSpellAction.performed -= OnNextSpell;
-        if (previousSpellAction != null) previousSpellAction.performed -= OnPreviousSpell;
+        if (previousSpellAction != null) previousSpellAction.performed -= OnGamepadModeSwitch;
         if (gamePadModeSwitchAction != null) gamePadModeSwitchAction.performed -= OnGamepadModeSwitch;
     }
 
@@ -290,6 +292,12 @@ public class PlayerAttack : MonoBehaviour
 
         lastComboHitTime = Time.time;
 
+        // Trigger specific combo animation (check if player can attack)
+        if (playerMovement != null && !playerMovement.IsDodging)
+        {
+            playerMovement.TriggerComboAttack(currentComboStep);
+        }
+
         // Calculate damage based on combo step
         int damage = attackDamage;
         bool isFinalHit = (currentComboStep == comboCount);
@@ -332,7 +340,7 @@ public class PlayerAttack : MonoBehaviour
     /// </summary>
     /// <param name="damage">Damage to deal to each enemy</param>
     /// <param name="isCritical">Is this a critical/final hit?</param>
-    /// <returns>Number of enemies hit</returns>
+    /// <returns>True if position is in cone</returns>
     private int PerformConeAttack(int damage, bool isCritical)
     {
         Vector3 attackOrigin = transform.position + Vector3.up * 0.5f;
@@ -424,21 +432,49 @@ public class PlayerAttack : MonoBehaviour
     {
         currentComboStep = 0;
         comboResetInProgress = false;
+        
+        // Reset combo in animation system
+        if (playerMovement != null)
+        {
+            playerMovement.ResetCombo();
+        }
+        
         UpdateComboText();
         Debug.Log("Combo reset");
     }
 
     private void PerformRangedAttack()
     {
+        // Trigger bow attack animation (check if player can attack)
+        if (playerMovement != null && !playerMovement.IsDodging)
+        {
+            playerMovement.TriggerAttackBow();
+        }
+
         if (arrowProjectilePrefab == null)
         {
             Debug.LogWarning("Arrow projectile prefab not assigned!");
             return;
         }
 
+        // Delay arrow firing to sync with animation
+        StartCoroutine(FireArrowDelayed(arrowFireDelay));
+    }
+
+    /// <summary>
+    /// Fires arrow after a delay to sync with bow animation
+    /// </summary>
+    private System.Collections.IEnumerator FireArrowDelayed(float delay)
+    {
+        // Store the aim direction at the moment of the attack
         Vector3 shootDirection = GetShootDirection();
+        
+        // Wait for animation to reach firing point
+        yield return new WaitForSeconds(delay);
+        
+        // Fire the arrow
         FireProjectile(arrowProjectilePrefab, shootDirection, projectileSpeed, ProjectileDamage.ProjectileType.Arrow);
-        Debug.Log("Player shot an arrow!");
+        Debug.Log($"Player shot an arrow after {delay}s delay!");
     }
 
     private void CastSpell()
@@ -551,30 +587,62 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastFireball()
     {
+        // Trigger fireball spell animation (check if player can cast)
+        if (playerMovement != null && !playerMovement.IsDodging)
+        {
+            playerMovement.TriggerSpellFireball();
+        }
+
         if (fireballProjectilePrefab != null)
         {
-            Vector3 castDirection = GetShootDirection();
-            FireProjectile(fireballProjectilePrefab, castDirection, projectileSpeed * 0.8f, ProjectileDamage.ProjectileType.Fireball);
+            // Delay projectile firing to sync with cast animation
+            StartCoroutine(FireSpellDelayed(fireballProjectilePrefab, spellCastDelay, projectileSpeed * 0.8f, ProjectileDamage.ProjectileType.Fireball));
         }
         else
         {
-            // Fallback to raycast-based fireball
-            Vector3 castDirection = GetShootDirection();
-            Vector3 castOrigin = GetProjectileSpawnPosition();
-
-            if (Physics.Raycast(castOrigin, castDirection, out RaycastHit hit, spellCastRange, aimingLayerMask))
-            {
-                // Apply area damage at hit point
-                DealAreaDamage(hit.point, 3f, attackDamage * 2);
-            }
-            else
-            {
-                // Cast at maximum range
-                Vector3 targetPoint = castOrigin + castDirection * spellCastRange;
-                DealAreaDamage(targetPoint, 3f, attackDamage * 2);
-            }
+            // Fallback to raycast-based fireball (also delayed)
+            StartCoroutine(CastFireballRaycastDelayed(spellCastDelay));
         }
         Debug.Log("Casting Fireball - dealing fire damage!");
+    }
+
+    /// <summary>
+    /// Fires spell projectile after a delay to sync with animation
+    /// </summary>
+    private System.Collections.IEnumerator FireSpellDelayed(GameObject projectilePrefab, float delay, float speed, ProjectileDamage.ProjectileType type)
+    {
+        // Store aim direction at cast time
+        Vector3 castDirection = GetShootDirection();
+        
+        // Wait for animation to reach casting point
+        yield return new WaitForSeconds(delay);
+        
+        // Fire the projectile
+        FireProjectile(projectilePrefab, castDirection, speed, type);
+        Debug.Log($"Spell projectile fired after {delay}s delay!");
+    }
+
+    /// <summary>
+    /// Raycast-based fireball with delay
+    /// </summary>
+    private System.Collections.IEnumerator CastFireballRaycastDelayed(float delay)
+    {
+        Vector3 castDirection = GetShootDirection();
+        Vector3 castOrigin = GetProjectileSpawnPosition();
+        
+        yield return new WaitForSeconds(delay);
+
+        if (Physics.Raycast(castOrigin, castDirection, out RaycastHit hit, spellCastRange, aimingLayerMask))
+        {
+            // Apply area damage at hit point
+            DealAreaDamage(hit.point, 3f, attackDamage * 2);
+        }
+        else
+        {
+            // Cast at maximum range
+            Vector3 targetPoint = castOrigin + castDirection * spellCastRange;
+            DealAreaDamage(targetPoint, 3f, attackDamage * 2);
+        }
     }
 
     private void CastLightning()
@@ -608,21 +676,37 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastIceBlast()
     {
+        // Trigger ice spell animation (check if player can cast)
+        if (playerMovement != null && !playerMovement.IsDodging)
+        {
+            playerMovement.TriggerSpellIce();
+        }
+
         if (iceBlastProjectilePrefab != null)
         {
-            Vector3 castDirection = GetShootDirection();
-            FireProjectile(iceBlastProjectilePrefab, castDirection, projectileSpeed * 0.6f, ProjectileDamage.ProjectileType.IceBlast);
+            // Delay projectile firing to sync with cast animation
+            StartCoroutine(FireSpellDelayed(iceBlastProjectilePrefab, spellCastDelay, projectileSpeed * 0.6f, ProjectileDamage.ProjectileType.IceBlast));
         }
         else
         {
-            // Fallback to area effect at target location
-            Vector3 castDirection = GetShootDirection();
-            Vector3 castOrigin = GetProjectileSpawnPosition();
-            Vector3 targetPosition = castOrigin + castDirection * spellCastRange;
-
-            DealAreaDamage(targetPosition, 4f, attackDamage);
+            // Fallback to area effect at target location (also delayed)
+            StartCoroutine(CastIceBlastAreaDelayed(spellCastDelay));
         }
         Debug.Log("Casting Ice Blast - freezing area damage!");
+    }
+
+    /// <summary>
+    /// Area-based ice blast with delay
+    /// </summary>
+    private System.Collections.IEnumerator CastIceBlastAreaDelayed(float delay)
+    {
+        Vector3 castDirection = GetShootDirection();
+        Vector3 castOrigin = GetProjectileSpawnPosition();
+        Vector3 targetPosition = castOrigin + castDirection * spellCastRange;
+        
+        yield return new WaitForSeconds(delay);
+
+        DealAreaDamage(targetPosition, 4f, attackDamage);
     }
 
     private void CastHeal()

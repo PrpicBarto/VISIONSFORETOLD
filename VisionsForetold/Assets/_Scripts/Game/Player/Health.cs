@@ -96,6 +96,16 @@ public class Health : MonoBehaviour
         // Reset health regen timer when taking damage
         healthRegenTimer = 0f;
 
+        // Trigger hurt animation for player
+        if (isPlayer)
+        {
+            PlayerMovement playerMovement = GetComponent<PlayerMovement>();
+            if (playerMovement != null)
+            {
+                playerMovement.TriggerHurt();
+            }
+        }
+
         // Invoke events
         OnDamageTaken?.Invoke(damage);
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
