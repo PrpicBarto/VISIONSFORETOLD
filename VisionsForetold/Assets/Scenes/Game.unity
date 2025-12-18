@@ -16486,7 +16486,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.Game.Player.Echo.EcholocationController
   enableEcholocation: 1
-  fogMaterial: {fileID: 2100000, guid: a04dbfadc86c83e45adcd541d216eabf, type: 2}
+  fogMaterial: {fileID: 2100000, guid: f138caad1b430d24aacd25e0b18b8635, type: 2}
   player: {fileID: 5342806458869551345}
   planeSize: {x: 500, y: 1, z: 500}
   planeDistanceFromCamera: 10
