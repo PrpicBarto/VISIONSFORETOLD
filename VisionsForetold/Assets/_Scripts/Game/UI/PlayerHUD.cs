@@ -67,6 +67,24 @@ public class PlayerHUD : MonoBehaviour
 
     private void Update()
     {
+        // Check if player references are still valid
+        if (playerHealth == null || playerXP == null)
+        {
+            // Try to reconnect to player
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                if (playerHealth == null)
+                    playerHealth = player.GetComponent<Health>();
+                if (playerXP == null)
+                    playerXP = player.GetComponent<PlayerXP>();
+            }
+            
+            // If still null, can't update UI
+            if (playerHealth == null || playerXP == null)
+                return;
+        }
+
         if (smoothTransition)
         {
             if (healthBarFill != null)
@@ -91,6 +109,9 @@ public class PlayerHUD : MonoBehaviour
 
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
+        // Safety check
+        if (maxHealth <= 0) return;
+
         float healthPercent = (float)currentHealth / maxHealth;
         targetHealthFill = healthPercent;
         

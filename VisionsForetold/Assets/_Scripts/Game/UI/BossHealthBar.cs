@@ -44,12 +44,33 @@ public class BossHealthBar : MonoBehaviour
 
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
-        if (isVisible && showOnlyInCombat)
+        // Safety check for division by zero
+        if (maxHealth <= 0)
+        {
+            Debug.LogWarning("[BossHealthBar] MaxHealth is 0 or negative!");
+            return;
+        }
+
+        // Check if bossHealth reference is still valid
+        if (bossHealth == null)
+        {
+            Debug.LogWarning("[BossHealthBar] Boss Health reference lost!");
+            return;
+        }
+
+        if (!isVisible && showOnlyInCombat)
         {
             SetVisibility(true);
         }
 
         float healthPercent = (float)currentHealth / (float)maxHealth;
+
+        // Validate the calculated percentage
+        if (float.IsNaN(healthPercent) || float.IsInfinity(healthPercent))
+        {
+            Debug.LogError($"[BossHealthBar] Invalid health percent: {healthPercent}");
+            return;
+        }
 
         if (HealthBarFill != null)
         {
@@ -58,13 +79,21 @@ public class BossHealthBar : MonoBehaviour
 
         if (bossHealthText != null)
         {
-            bossHealthText.text="{currentHealth}/{maxHealth}";
+            bossHealthText.text = $"{currentHealth}/{maxHealth}";
         }
     }
 
     private void OnBossDeath()
     {
-        StartCoroutine(FadeOutHealthBar());
+        // Check if still valid before starting coroutine
+        if (this != null && gameObject != null && gameObject.activeInHierarchy)
+        {
+            StartCoroutine(FadeOutHealthBar());
+        }
+        else
+        {
+            SetVisibility(false);
+        }
     }
 
     private System.Collections.IEnumerator FadeOutHealthBar()
@@ -85,5 +114,15 @@ public class BossHealthBar : MonoBehaviour
     public void Show()
     {
         SetVisibility(true);
+    }
+
+    private void OnDestroy()
+    {
+        // Clean up event listeners
+        if (bossHealth != null)
+        {
+            bossHealth.OnHealthChanged.RemoveListener(UpdateHealthBar);
+            bossHealth.OnDeath.RemoveListener(OnBossDeath);
+        }
     }
 }

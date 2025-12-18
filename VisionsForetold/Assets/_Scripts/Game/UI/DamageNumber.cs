@@ -51,11 +51,24 @@ public class DamageNumber : MonoBehaviour
 
     private void Update()
     {
+        // Check if components are valid
+        if (textComponent == null || transform == null)
+        {
+            // Component destroyed, clean up
+            Destroy(gameObject);
+            return;
+        }
+
         // Rise up
         transform.position += Vector3.up * riseSpeed * Time.deltaTime;
         
         // Face camera
-        if (mainCamera != null)
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+        }
+
+        if (mainCamera != null && transform != null)
         {
             transform.rotation = Quaternion.LookRotation(transform.position - mainCamera.transform.position);
         }
