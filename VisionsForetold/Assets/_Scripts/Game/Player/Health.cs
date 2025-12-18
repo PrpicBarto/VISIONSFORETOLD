@@ -248,7 +248,7 @@ public class Health : MonoBehaviour
         // Invoke death event
         OnDeath?.Invoke();
 
-        // Handle ragdoll instantiation
+        // Handle ragdoll instantiation (legacy system - only if ragdollPrefab assigned)
         if (ragdollPrefab != null)
         {
             SpawnRagdoll();
@@ -259,11 +259,9 @@ public class Health : MonoBehaviour
         {
             HandlePlayerDeath();
         }
-        else
-        {
-            // For non-player entities, destroy after a short delay
-            Destroy(gameObject, 0.1f);
-        }
+        // NOTE: Removed automatic Destroy for non-player entities
+        // Let the enemy's own death system (BaseEnemy) handle destruction timing
+        // This allows ragdoll systems to work properly
     }
 
     private void SpawnRagdoll()

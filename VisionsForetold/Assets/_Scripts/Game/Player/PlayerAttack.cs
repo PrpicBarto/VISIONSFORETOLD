@@ -92,8 +92,20 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float spellSwitchCooldown = 0.3f;
     [SerializeField] private float scrollSensitivity = 0.1f; // Minimum scroll delta to register
 
+    [Header("Audio Settings")]
+    [SerializeField] private AudioClip swordSwingSound;
+    [SerializeField] private AudioClip bowReleaseSound;
+    [SerializeField] private AudioClip fireballCastSound;
+    [SerializeField] private AudioClip lightningCastSound;
+    [SerializeField] private AudioClip iceBlastCastSound;
+    [SerializeField] private AudioClip healCastSound;
+    [SerializeField] private AudioClip modeSwitchSound;
+    [SerializeField] private bool enterCombatOnAttack = true;
+    [SerializeField] private float combatTimeoutAfterAttack = 5f;
+
     private float lastModeSwitchTime = -Mathf.Infinity;
     private float lastSpellSwitchTime = -Mathf.Infinity;
+    private float lastCombatActionTime = -Mathf.Infinity;
 
     private float lastAttackTime = -Mathf.Infinity;
     private float lastFireballTime = -Mathf.Infinity;
@@ -200,12 +212,34 @@ public class PlayerAttack : MonoBehaviour
         UpdateComboText();
     }
 
+    private void Update()
+    {
+        // Check if we should exit combat after inactivity
+        if (enterCombatOnAttack && AudioManager.Instance != null)
+        {
+            if (AudioManager.Instance.IsInCombat && Time.time - lastCombatActionTime > combatTimeoutAfterAttack)
+            {
+                AudioManager.Instance.ExitCombat();
+            }
+        }
+
+        // Handle camera zoom
+        ApplyCameraZoom();
+    }
+
     #region Input Handlers
 
     public void PerformAttack(InputAction.CallbackContext context)
     {
         if (!context.performed || Time.time < lastAttackTime + attackCooldown)
             return;
+
+        // Enter combat when player attacks
+        if (enterCombatOnAttack && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.EnterCombat();
+            lastCombatActionTime = Time.time;
+        }
 
         switch (currentAttackMode)
         {
@@ -276,56 +310,44 @@ public class PlayerAttack : MonoBehaviour
 
     private void PerformMeleeAttack()
     {
-        // Check if combo window has expired
-        if (Time.time > lastComboHitTime + comboWindow && currentComboStep > 0)
+        // Play sword swing sound
+        if (swordSwingSound != null && AudioManager.Instance != null)
         {
-            // Combo window expired, reset combo
-            ResetCombo();
+            AudioManager.Instance.PlaySFX(swordSwingSound);
         }
 
-        // Advance combo step
-        currentComboStep++;
-        if (currentComboStep > comboCount)
+        // Update combo
+        if (Time.time - lastComboHitTime > comboWindow || comboResetInProgress)
         {
-            currentComboStep = 1; // Restart combo
-        }
-
-        lastComboHitTime = Time.time;
-
-        // Trigger specific combo animation (check if player can attack)
-        if (playerMovement != null && !playerMovement.IsDodging)
-        {
-            playerMovement.TriggerComboAttack(currentComboStep);
-        }
-
-        // Calculate damage based on combo step
-        int damage = attackDamage;
-        bool isFinalHit = (currentComboStep == comboCount);
-
-        if (isFinalHit)
-        {
-            damage = Mathf.RoundToInt(attackDamage * finalHitDamageMultiplier);
-            Debug.Log($"FINAL HIT! Combo {currentComboStep}/{comboCount} - Damage: {damage} (x{finalHitDamageMultiplier})");
+            currentComboStep = 1;
+            comboResetInProgress = false;
         }
         else
         {
-            Debug.Log($"Combo {currentComboStep}/{comboCount} - Damage: {damage}");
+            currentComboStep++;
         }
 
-        // Update combo UI
-        UpdateComboText();
+        // Clamp combo step
+        currentComboStep = Mathf.Clamp(currentComboStep, 1, comboCount);
+        lastComboHitTime = Time.time;
+
+        // Check if this is the final hit
+        bool isFinalHit = currentComboStep >= comboCount;
+
+        // Calculate damage
+        int damage = isFinalHit ? Mathf.RoundToInt(attackDamage * finalHitDamageMultiplier) : attackDamage;
 
         // Perform cone attack
         int enemiesHit = PerformConeAttack(damage, isFinalHit);
 
-        if (enemiesHit == 0)
+        // Trigger combo attack animation with combo step
+        if (playerMovement != null)
         {
-            Debug.Log("Melee attack missed - no targets in cone");
+            playerMovement.TriggerComboAttack(currentComboStep);
         }
-        else
-        {
-            Debug.Log($"Melee attack hit {enemiesHit} enem{(enemiesHit == 1 ? "y" : "ies")}!");
-        }
+
+        Debug.Log($"Combo Hit {currentComboStep}/{comboCount} - Damaged {enemiesHit} enemies for {damage} damage{(isFinalHit ? " (FINAL HIT!)" : "")}");
+        UpdateComboText();
 
         // Schedule combo reset if this was the final hit
         if (isFinalHit)
@@ -445,6 +467,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void PerformRangedAttack()
     {
+        // Play bow release sound
+        if (bowReleaseSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(bowReleaseSound);
+        }
+
         // Trigger bow attack animation (check if player can attack)
         if (playerMovement != null && !playerMovement.IsDodging)
         {
@@ -587,6 +615,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastFireball()
     {
+        // Play fireball cast sound
+        if (fireballCastSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(fireballCastSound);
+        }
+
         // Trigger fireball spell animation (check if player can cast)
         if (playerMovement != null && !playerMovement.IsDodging)
         {
@@ -647,6 +681,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastLightning()
     {
+        // Play lightning cast sound
+        if (lightningCastSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(lightningCastSound);
+        }
+
         Vector3 castDirection = GetShootDirection();
         Vector3 castOrigin = GetProjectileSpawnPosition();
 
@@ -676,6 +716,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastIceBlast()
     {
+        // Play ice blast cast sound
+        if (iceBlastCastSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(iceBlastCastSound);
+        }
+
         // Trigger ice spell animation (check if player can cast)
         if (playerMovement != null && !playerMovement.IsDodging)
         {
@@ -711,6 +757,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CastHeal()
     {
+        // Play heal cast sound
+        if (healCastSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(healCastSound);
+        }
+
         // Heal the player
         var playerHealth = GetComponent<Health>();
         if (playerHealth != null)
@@ -754,6 +806,12 @@ public class PlayerAttack : MonoBehaviour
 
     private void CycleAttackMode(int direction)
     {
+        // Play mode switch sound
+        if (modeSwitchSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(modeSwitchSound);
+        }
+
         var modes = System.Enum.GetValues(typeof(AttackMode));
         int modeCount = modes.Length;
         int currentIndex = (int)currentAttackMode;
@@ -950,46 +1008,4 @@ public class PlayerAttack : MonoBehaviour
     }
 
     #endregion
-
-    private void Update()
-    {
-        // Update spell text to show cooldown timers
-        if (currentAttackMode == AttackMode.SpellWielding)
-        {
-            UpdateSpellText();
-        }
-
-        // Update combo text in real-time
-        if (currentAttackMode == AttackMode.Melee)
-        {
-            // Check if combo window expired
-            if (currentComboStep > 0 && Time.time > lastComboHitTime + comboWindow && !comboResetInProgress)
-            {
-                ResetCombo();
-            }
-            
-            UpdateComboText();
-        }
-
-        // Apply camera zoom smoothly
-        ApplyCameraZoom();
-
-        // Detect mode changes to update zoom
-        if (currentAttackMode == AttackMode.Ranged && !wasInRangedMode)
-        {
-            UpdateCameraZoom();
-            wasInRangedMode = true;
-        }
-        else if (currentAttackMode != AttackMode.Ranged && wasInRangedMode)
-        {
-            UpdateCameraZoom();
-            wasInRangedMode = false;
-        }
-
-        // Try to get aim target if we don't have it
-        if (aimTarget == null && playerMovement != null)
-        {
-            GetAimTargetFromPlayerMovement();
-        }
-    }
 }

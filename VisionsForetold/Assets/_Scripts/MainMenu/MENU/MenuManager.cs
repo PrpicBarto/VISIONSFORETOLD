@@ -56,11 +56,11 @@ public class MenuManager : MonoBehaviour
     [Tooltip("Play sound on button click")]
     [SerializeField] private bool playButtonSounds = true;
     
-    [Tooltip("Button click sound (will be integrated with AudioManager later)")]
+    [Tooltip("Button click sound")]
     [SerializeField] private AudioClip buttonClickSound;
     
-    [Tooltip("AudioSource for menu sounds")]
-    [SerializeField] private AudioSource menuAudioSource;
+    [Tooltip("Button hover sound")]
+    [SerializeField] private AudioClip buttonHoverSound;
 
     [Header("Input Settings")]
     [Tooltip("Allow ESC key to go back in menus")]
@@ -146,13 +146,6 @@ public class MenuManager : MonoBehaviour
         {
             fadePanel.alpha = 0f;
             fadePanel.blocksRaycasts = false;
-        }
-
-        // Create AudioSource if needed
-        if (menuAudioSource == null && playButtonSounds)
-        {
-            menuAudioSource = gameObject.AddComponent<AudioSource>();
-            menuAudioSource.playOnAwake = false;
         }
 
         // Auto-find first selected buttons if not assigned
@@ -678,14 +671,29 @@ public class MenuManager : MonoBehaviour
 
     private void PlayButtonSound()
     {
-        if (!playButtonSounds || menuAudioSource == null || buttonClickSound == null)
+        if (!playButtonSounds)
             return;
 
-        menuAudioSource.PlayOneShot(buttonClickSound);
+        // Play button click sound via AudioManager
+        if (buttonClickSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(buttonClickSound);
+        }
     }
 
     /// <summary>
-    /// Set button click sound (for use with AudioManager later)
+    /// Play button hover sound (can be called from UI event triggers)
+    /// </summary>
+    public void PlayButtonHoverSound()
+    {
+        if (buttonHoverSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(buttonHoverSound);
+        }
+    }
+
+    /// <summary>
+    /// Set button click sound
     /// </summary>
     public void SetButtonClickSound(AudioClip clip)
     {

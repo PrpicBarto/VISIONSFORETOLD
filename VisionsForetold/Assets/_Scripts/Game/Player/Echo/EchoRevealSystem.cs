@@ -301,6 +301,13 @@ namespace VisionsForetold.Game.Player.Echo
 
             foreach (var kvp in revealedObjects)
             {
+                // Check if object has been destroyed
+                if (kvp.Key == null)
+                {
+                    objectsToRemove.Add(kvp.Key);
+                    continue;
+                }
+
                 if (currentTime >= kvp.Value.endTime)
                 {
                     objectsToRemove.Add(kvp.Key);
@@ -310,6 +317,14 @@ namespace VisionsForetold.Game.Player.Echo
             for (int i = 0; i < objectsToRemove.Count; i++)
             {
                 GameObject obj = objectsToRemove[i];
+                
+                // Check if object is null (destroyed)
+                if (obj == null)
+                {
+                    revealedObjects.Remove(obj);
+                    continue;
+                }
+                
                 if (showDebugLogs)
                 {
                     Debug.Log($"[EchoReveal] Hiding: {obj.name}");
@@ -376,6 +391,10 @@ namespace VisionsForetold.Game.Player.Echo
             // Update reveal strength based on time
             foreach (var kvp in revealedObjects)
             {
+                // Check if GameObject has been destroyed
+                if (kvp.Key == null)
+                    continue;
+
                 RevealData data = kvp.Value;
                 float timeAlive = currentTime - data.revealTime;
                 float timeToDeath = data.endTime - currentTime;
@@ -443,9 +462,15 @@ namespace VisionsForetold.Game.Player.Echo
             float currentTime = Time.time;
 
             // Fill arrays with revealed object data
-            foreach (var data in revealedObjects.Values)
+            foreach (var kvp in revealedObjects)
             {
+                // Skip destroyed objects
+                if (kvp.Key == null)
+                    continue;
+
                 if (count >= maxRevealedObjects) break;
+
+                RevealData data = kvp.Value;
 
                 // Calculate fade
                 float timeAlive = currentTime - data.revealTime;

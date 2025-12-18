@@ -696,7 +696,7 @@ MonoBehaviour:
   fadePanel: {fileID: 0}
   playButtonSounds: 1
   buttonClickSound: {fileID: 0}
-  menuAudioSource: {fileID: 0}
+  buttonHoverSound: {fileID: 0}
   allowEscapeKey: 1
   allowGamepadBack: 1
   autoDetectInputMethod: 1
@@ -3400,6 +3400,64 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
+--- !u!1 &672202102
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 672202104}
+  - component: {fileID: 672202103}
+  m_Layer: 0
+  m_Name: AudioManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &672202103
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672202102}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 06991268c328ec94ab04f23e7a4f6652, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::AudioManager
+  mainMenuMusic: {fileID: 8300000, guid: ac269e3e96dc90243858ce66b26e46a8, type: 3}
+  pointClickMusic: {fileID: 8300000, guid: ac269e3e96dc90243858ce66b26e46a8, type: 3}
+  combatPassiveMusic: {fileID: 8300000, guid: 1ed180cff3872874898e3d06f6d2d5ac, type: 3}
+  combatAggressiveMusic: {fileID: 8300000, guid: a1de6f2837c2ae74a860bd00d276b4af, type: 3}
+  musicSource1: {fileID: 0}
+  musicSource2: {fileID: 0}
+  sfxSource: {fileID: 0}
+  masterVolume: 1
+  musicVolume: 0.7
+  sfxVolume: 1
+  musicFadeDuration: 2
+  combatTransitionDuration: 1.5
+  combatExitDelay: 3
+  showDebugLogs: 1
+--- !u!4 &672202104
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 672202102}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &676508144
 GameObject:
   m_ObjectHideFlags: 0
@@ -7745,10 +7803,10 @@ RectTransform:
   m_LocalScale: {x: 0.40776, y: 0.40776, z: 0.40776}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 242753366}
-  - {fileID: 1748341152}
-  - {fileID: 1401193188}
   - {fileID: 317102304}
+  - {fileID: 1401193188}
+  - {fileID: 1748341152}
+  - {fileID: 242753366}
   m_Father: {fileID: 1398792219}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -9952,3 +10010,4 @@ SceneRoots:
   - {fileID: 65830679}
   - {fileID: 8154201}
   - {fileID: 1987922647}
+  - {fileID: 672202104}
