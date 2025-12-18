@@ -28,6 +28,17 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private AnimationCurve dodgeCurve = AnimationCurve.EaseInOut(0, 0, 1, 1);
     [SerializeField] private bool invulnerableDuringDodge = true;
 
+    [Header("Dash Settings")]
+    [SerializeField] private bool enableDash = true;
+    [SerializeField] private float dashDistance = 8f;
+    [SerializeField] private float dashDuration = 0.3f;
+    [SerializeField] private float dashCooldown = 2.0f;
+    [SerializeField] private AnimationCurve dashCurve = AnimationCurve.Linear(0, 0, 1, 1);
+    [SerializeField] private float dashStaminaCost = 25f;
+    [SerializeField] private bool requireStaminaForDash = true;
+    [SerializeField] private bool canDashInAir = false;
+    [SerializeField] private bool invulnerableDuringDash = false;
+
     [Header("Aiming Settings")]
     [SerializeField] private Transform aimTarget;
     [SerializeField] private float mouseSensitivity = 2f;
@@ -38,6 +49,8 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private bool alwaysRotateTowardsAim = true;
     [SerializeField] private bool rotateTowardsMovementWhenNoAim = false;
     [SerializeField] private float minAimDistance = 0.1f;
+    [SerializeField] private bool rotateToMovementByDefault = true; // New: Rotate to movement when not attacking
+    [SerializeField] private float attackRotationDuration = 0.5f; // How long to keep aiming after attack
 
     [Header("Components")]
     [SerializeField] private Rigidbody playerRigidbody;
@@ -85,6 +98,16 @@ public class PlayerMovement : MonoBehaviour
     private float lastDodgeTime = -Mathf.Infinity;
     private Vector3 dodgeDirection;
 
+    // Dash state
+    private bool isDashing;
+    private float dashTimer;
+    private float lastDashTime = -Mathf.Infinity;
+    private Vector3 dashDirection;
+
+    // Rotation state
+    private bool isAttacking;
+    private float lastAttackTime = -Mathf.Infinity;
+
     // Animation variables
     private float currentAnimationSpeed;
     private bool wasMovingLastFrame;
@@ -97,9 +120,15 @@ public class PlayerMovement : MonoBehaviour
     private static readonly int DodgeHash = Animator.StringToHash("Dodge");
     private static readonly int IsSprintingHash = Animator.StringToHash("IsSprinting");
     private static readonly int IsRunningHash = Animator.StringToHash("IsRunning");
+    private static readonly int DirectionXHash = Animator.StringToHash("DirectionX");
+    private static readonly int DirectionYHash = Animator.StringToHash("DirectionY");
     
-    // Animation parameter hashes - Combat
+    // Animation parameter hashes - Combat (Combo System)
     private static readonly int AttackHash = Animator.StringToHash("Attack");
+    private static readonly int Attack1Hash = Animator.StringToHash("Attack1");
+    private static readonly int Attack2Hash = Animator.StringToHash("Attack2");
+    private static readonly int Attack3Hash = Animator.StringToHash("Attack3");
+    private static readonly int ComboStepHash = Animator.StringToHash("ComboStep");
     private static readonly int AttackBowHash = Animator.StringToHash("AttackBow");
     private static readonly int SpellFireballHash = Animator.StringToHash("SpellFireball");
     private static readonly int SpellIceHash = Animator.StringToHash("SpellIce");
@@ -110,6 +139,7 @@ public class PlayerMovement : MonoBehaviour
     private static readonly int HurtHash = Animator.StringToHash("Hurt");
     private static readonly int IdleHash = Animator.StringToHash("Idle");
     private static readonly int DashHash = Animator.StringToHash("Dash");
+    private static readonly int RunHash = Animator.StringToHash("Run");
     
     // Animation parameter hashes - Health
     private static readonly int IsLowHealthHash = Animator.StringToHash("IsLowHealth");
@@ -121,7 +151,9 @@ public class PlayerMovement : MonoBehaviour
     // Public properties
     public Transform AimTarget => aimTarget;
     public bool IsDodging => isDodging;
+    public bool IsDashing => isDashing;
     public bool IsSprinting => isSprinting;
+    public bool IsAttacking => isAttacking;
     public bool IsRunning => currentAnimationSpeed > 1.2f && movementInput.magnitude > 0.1f;
     public float CurrentStamina => currentStamina;
     public float MaxStamina => maxStamina;
@@ -218,6 +250,10 @@ public class PlayerMovement : MonoBehaviour
         {
             HandleDodgeMovement();
         }
+        else if (isDashing)
+        {
+            HandleDashMovement();
+        }
         else
         {
             HandleMovement();
@@ -302,6 +338,14 @@ public class PlayerMovement : MonoBehaviour
         if (context.performed && enableDodge && !isDodging)
         {
             TryPerformDodge();
+        }
+    }
+
+    public void OnDash(InputAction.CallbackContext context)
+    {
+        if (context.performed && enableDash && !isDashing)
+        {
+            TryPerformDash();
         }
     }
 
@@ -566,19 +610,146 @@ public class PlayerMovement : MonoBehaviour
 
     #endregion
 
+    #region Dash System
+
+    private void TryPerformDash()
+    {
+        // Check cooldown
+        float cooldownRemaining = (lastDashTime + dashCooldown) - Time.time;
+        if (cooldownRemaining > 0)
+        {
+            Debug.Log($"[PlayerMovement] Dash on cooldown! {cooldownRemaining:F1}s remaining");
+            return;
+        }
+
+        // Check if already dashing or dodging
+        if (isDashing || isDodging)
+        {
+            return;
+        }
+
+        // Check stamina requirement
+        if (requireStaminaForDash && currentStamina < dashStaminaCost)
+        {
+            Debug.Log("[PlayerMovement] Not enough stamina to dash!");
+            return;
+        }
+
+        // Check if grounded (if required)
+        if (!canDashInAir && !IsGrounded())
+        {
+            Debug.Log("[PlayerMovement] Cannot dash in air!");
+            return;
+        }
+
+        // Determine dash direction
+        if (movementInput.magnitude > 0.1f)
+        {
+            // Dash in movement direction
+            dashDirection = GetWorldSpaceMovement(movementInput.normalized);
+        }
+        else
+        {
+            // Dash forward if no input
+            dashDirection = transform.forward;
+        }
+
+        StartDash();
+    }
+
+    private void StartDash()
+    {
+        isDashing = true;
+        isSprinting = false; // Cancel sprint when dashing
+        dashTimer = 0f;
+        lastDashTime = Time.time;
+
+        // Consume stamina
+        if (requireStaminaForDash)
+        {
+            currentStamina = Mathf.Max(0, currentStamina - dashStaminaCost);
+            lastStaminaUseTime = Time.time;
+        }
+
+        // Trigger dash animation
+        if (animator != null)
+        {
+            animator.ResetTrigger(DashHash);
+            animator.SetTrigger(DashHash);
+        }
+
+        // Set invulnerability if enabled
+        if (invulnerableDuringDash && playerHealth != null)
+        {
+            // playerHealth.SetInvulnerable(true);
+        }
+
+        Debug.Log($"[PlayerMovement] Dash started! Direction: {dashDirection}, Stamina: {currentStamina}/{maxStamina}");
+    }
+
+    private void HandleDashMovement()
+    {
+        dashTimer += Time.fixedDeltaTime;
+        float normalizedTime = dashTimer / dashDuration;
+
+        if (normalizedTime >= 1f)
+        {
+            EndDash();
+            return;
+        }
+
+        // Use dash curve for speed variation (can be linear or curved)
+        float curveValue = dashCurve.Evaluate(normalizedTime);
+        float dashSpeed = (dashDistance / dashDuration) * curveValue;
+
+        Vector3 dashVelocity = dashDirection * dashSpeed;
+        dashVelocity.y = playerRigidbody.linearVelocity.y;
+
+        playerRigidbody.linearVelocity = dashVelocity;
+    }
+
+    private void EndDash()
+    {
+        isDashing = false;
+        dashTimer = 0f;
+
+        // Remove invulnerability
+        if (invulnerableDuringDash && playerHealth != null)
+        {
+            // playerHealth.SetInvulnerable(false);
+        }
+
+        Debug.Log("[PlayerMovement] Dash ended!");
+    }
+
+    public float GetDashCooldownRemaining()
+    {
+        return Mathf.Max(0, (lastDashTime + dashCooldown) - Time.time);
+    }
+
+    private bool IsGrounded()
+    {
+        // Simple ground check using raycast
+        float rayDistance = 0.2f;
+        return Physics.Raycast(transform.position, Vector3.down, rayDistance);
+    }
+
+    #endregion
+
     #region Rotation
 
     private void HandleRotation()
     {
-        if (alwaysRotateTowardsAim && aimTarget != null)
+        // With single run animation: Character always faces movement direction
+        // This ensures the animation plays naturally in the direction of travel
+        
+        if (movementInput.magnitude > 0.1f)
         {
-            RotateTowardsAim();
-        }
-        else if (rotateTowardsMovementWhenNoAim && movementInput.magnitude > 0.1f)
-        {
+            // Always rotate to movement direction when moving
             Vector3 worldMovement = GetWorldSpaceMovement(movementInput.normalized);
             RotateTowardsMovement(worldMovement);
         }
+        // When not moving, keep current rotation (or optionally face aim target)
     }
 
     private void RotateTowardsAim()
@@ -703,26 +874,56 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null) return;
 
-        bool isMoving = movementInput.magnitude > 0.1f && !isDodging;
-        float targetSpeed = isMoving ? movementInput.magnitude : 0f;
-        
-        // Multiply by sprint if active
-        if (isSprinting)
+        // Check if AnimatorController is assigned
+        if (animator.runtimeAnimatorController == null)
         {
-            targetSpeed *= sprintSpeedMultiplier;
+            // Only log warning once instead of every frame
+            if (Time.frameCount % 300 == 0) // Every ~5 seconds at 60fps
+            {
+                Debug.LogWarning("[PlayerMovement] No AnimatorController assigned! Please assign one to the Animator component on the Player GameObject.");
+            }
+            return;
         }
 
-        currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, targetSpeed, Time.deltaTime / animationSmoothTime);
+        // Don't update movement animations while dashing or dodging
+        bool isMoving = movementInput.magnitude > 0.1f && !isDodging && !isDashing;
+        
+        if (isMoving)
+        {
+            // Calculate speed with sprint multiplier
+            float targetSpeed = movementInput.magnitude;
+            if (isSprinting)
+            {
+                targetSpeed *= sprintSpeedMultiplier;
+            }
 
-        // Determine if running (at max speed)
-        // Run animation plays when Speed is above walk threshold (typically > 1.0)
-        bool isRunning = isMoving && currentAnimationSpeed > 1.2f;
+            currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, targetSpeed, Time.deltaTime / animationSmoothTime);
 
-        // Update movement animations
-        animator.SetBool(IsMovingHash, isMoving);
-        animator.SetFloat(SpeedHash, currentAnimationSpeed);
-        animator.SetBool(IsSprintingHash, isSprinting);
-        animator.SetBool(IsRunningHash, isRunning);
+            // Run animation plays whenever moving (single animation for all directions)
+            bool isRunning = true;
+
+            // Update movement animations
+            animator.SetBool(IsMovingHash, true);
+            animator.SetFloat(SpeedHash, currentAnimationSpeed);
+            animator.SetBool(IsSprintingHash, isSprinting);
+            animator.SetBool(IsRunningHash, isRunning);
+            
+            // Set directional parameters to 0 (not used with single animation)
+            animator.SetFloat(DirectionXHash, 0f);
+            animator.SetFloat(DirectionYHash, 0f);
+        }
+        else
+        {
+            // Not moving - return to idle
+            currentAnimationSpeed = Mathf.Lerp(currentAnimationSpeed, 0f, Time.deltaTime / animationSmoothTime);
+
+            animator.SetBool(IsMovingHash, false);
+            animator.SetFloat(SpeedHash, 0f);
+            animator.SetBool(IsSprintingHash, false);
+            animator.SetBool(IsRunningHash, false);
+            animator.SetFloat(DirectionXHash, 0f);
+            animator.SetFloat(DirectionYHash, 0f);
+        }
 
         // Update health-based animations
         UpdateHealthAnimations();
@@ -759,30 +960,74 @@ public class PlayerMovement : MonoBehaviour
     // Combat Animation Triggers
     
     /// <summary>
-    /// Trigger melee attack animation
+    /// Trigger melee attack animation (generic)
     /// Called from PlayerAttack script when performing melee attack
     /// </summary>
     public void TriggerAttack()
     {
-        if (animator == null)
+        if (animator == null || animator.runtimeAnimatorController == null)
         {
-            Debug.LogWarning("[PlayerMovement] Animator component is missing!");
+            Debug.LogWarning("[PlayerMovement] No AnimatorController assigned!");
             return;
         }
 
-        if (animator.runtimeAnimatorController == null)
-        {
-            Debug.LogWarning("[PlayerMovement] No AnimatorController assigned to Animator! Please assign one in the Inspector.");
-            return;
-        }
+        // Reset trigger first to ensure clean state
+        animator.ResetTrigger(AttackHash);
+        animator.SetTrigger(AttackHash);
+        Debug.Log("[PlayerMovement] Triggered Attack animation");
+    }
 
-        if (!isDodging)
+    /// <summary>
+    /// Trigger specific combo attack animation
+    /// Use this for 3-hit combo system with individual animations
+    /// </summary>
+    /// <param name="comboStep">Which combo step (1, 2, or 3)</param>
+    public void TriggerComboAttack(int comboStep)
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+        
+        // Mark as attacking for rotation
+        SetAttackingState(true);
+        
+        // Update combo step parameter for blend trees/state machines
+        animator.SetInteger(ComboStepHash, comboStep);
+        
+        // Trigger specific attack based on combo step
+        switch (comboStep)
         {
-            // Reset trigger first to ensure clean state
-            animator.ResetTrigger(AttackHash);
-            animator.SetTrigger(AttackHash);
-            Debug.Log("[PlayerMovement] Triggered Attack animation");
+            case 1:
+                animator.ResetTrigger(Attack1Hash);
+                animator.SetTrigger(Attack1Hash);
+                Debug.Log("[PlayerMovement] Triggered Attack1 (Combo 1/3)");
+                break;
+            case 2:
+                animator.ResetTrigger(Attack2Hash);
+                animator.SetTrigger(Attack2Hash);
+                Debug.Log("[PlayerMovement] Triggered Attack2 (Combo 2/3)");
+                break;
+            case 3:
+                animator.ResetTrigger(Attack3Hash);
+                animator.SetTrigger(Attack3Hash);
+                Debug.Log("[PlayerMovement] Triggered Attack3 (Combo 3/3 - FINISHER)");
+                break;
+            default:
+                // Fallback to generic attack
+                animator.ResetTrigger(AttackHash);
+                animator.SetTrigger(AttackHash);
+                Debug.LogWarning($"[PlayerMovement] Invalid combo step {comboStep}, using generic attack");
+                break;
         }
+    }
+
+    /// <summary>
+    /// Reset combo state (call when combo times out or is interrupted)
+    /// </summary>
+    public void ResetCombo()
+    {
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+        
+        animator.SetInteger(ComboStepHash, 0);
+        Debug.Log("[PlayerMovement] Combo reset");
     }
 
     /// <summary>
@@ -793,28 +1038,16 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        if (!isDodging)
-        {
-            // Reset trigger first to ensure clean state (fixes single-trigger issue)
-            animator.ResetTrigger(AttackBowHash);
-            
-            // Then set the trigger
-            animator.SetTrigger(AttackBowHash);
-            Debug.Log("[PlayerMovement] Triggered AttackBow animation");
-        }
+        // Mark as attacking for rotation
+        SetAttackingState(true);
+
+        // Reset trigger first to ensure clean state (fixes single-trigger issue)
+        animator.ResetTrigger(AttackBowHash);
+        
+        // Then set the trigger
+        animator.SetTrigger(AttackBowHash);
+        Debug.Log("[PlayerMovement] Triggered AttackBow animation");
     }
-
-    public void OnAttackBowComplete()
-    {
-        Debug.Log("[PlayerMovement] AttackBow animation completed");
-
-        // Reset trigger to ensure it can fire again
-        if (animator != null)
-        {
-            animator.ResetTrigger(AttackBowHash);
-        }
-    }
-
 
     /// <summary>
     /// Trigger fireball spell animation
@@ -824,12 +1057,12 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        if (!isDodging)
-        {
-            animator.ResetTrigger(SpellFireballHash);
-            animator.SetTrigger(SpellFireballHash);
-            Debug.Log("[PlayerMovement] Triggered SpellFireball animation");
-        }
+        // Mark as attacking for rotation
+        SetAttackingState(true);
+
+        animator.ResetTrigger(SpellFireballHash);
+        animator.SetTrigger(SpellFireballHash);
+        Debug.Log("[PlayerMovement] Triggered SpellFireball animation");
     }
 
     /// <summary>
@@ -840,12 +1073,12 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        if (!isDodging)
-        {
-            animator.ResetTrigger(SpellIceHash);
-            animator.SetTrigger(SpellIceHash);
-            Debug.Log("[PlayerMovement] Triggered SpellIce animation");
-        }
+        // Mark as attacking for rotation
+        SetAttackingState(true);
+
+        animator.ResetTrigger(SpellIceHash);
+        animator.SetTrigger(SpellIceHash);
+        Debug.Log("[PlayerMovement] Triggered SpellIce animation");
     }
 
     /// <summary>
@@ -869,12 +1102,9 @@ public class PlayerMovement : MonoBehaviour
     {
         if (animator == null || animator.runtimeAnimatorController == null) return;
 
-        if (!isDodging)
-        {
-            animator.ResetTrigger(DashHash);
-            animator.SetTrigger(DashHash);
-            Debug.Log("[PlayerMovement] Triggered Dash animation");
-        }
+        animator.ResetTrigger(DashHash);
+        animator.SetTrigger(DashHash);
+        Debug.Log("[PlayerMovement] Triggered Dash animation");
     }
 
     // Generic Animation Control Methods
@@ -949,6 +1179,54 @@ public class PlayerMovement : MonoBehaviour
         currentStamina = maxStamina;
     }
 
+    /// <summary>
+    /// Force dash in a specific direction (useful for abilities)
+    /// </summary>
+    public void PerformDashInDirection(Vector3 direction)
+    {
+        if (!enableDash || isDashing || isDodging) return;
+
+        dashDirection = direction.normalized;
+        StartDash();
+    }
+
+    /// <summary>
+    /// Cancel current dash
+    /// </summary>
+    public void CancelDash()
+    {
+        if (isDashing)
+        {
+            EndDash();
+        }
+    }
+
+    /// <summary>
+    /// Set the attacking state (for rotation control)
+    /// Called automatically by attack triggers
+    /// </summary>
+    public void SetAttackingState(bool attacking)
+    {
+        isAttacking = attacking;
+        if (attacking)
+        {
+            lastAttackTime = Time.time;
+            Debug.Log("[PlayerMovement] Entered attacking state - rotating to aim target");
+        }
+        else
+        {
+            Debug.Log("[PlayerMovement] Exited attacking state - rotating to movement direction");
+        }
+    }
+
+    /// <summary>
+    /// Check if currently in attack rotation mode
+    /// </summary>
+    public bool IsInAttackRotationMode()
+    {
+        return isAttacking || (Time.time - lastAttackTime < attackRotationDuration);
+    }
+
     #endregion
 
     #region Debug
@@ -977,6 +1255,13 @@ public class PlayerMovement : MonoBehaviour
             Gizmos.color = Color.yellow;
             Gizmos.DrawRay(transform.position, dodgeDirection * dodgeDistance);
         }
+
+        // Draw dash direction when dashing
+        if (Application.isPlaying && isDashing)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawRay(transform.position, dashDirection * dashDistance);
+        }
     }
 
 
@@ -998,6 +1283,12 @@ public class PlayerMovement : MonoBehaviour
         staminaRegenDelay = Mathf.Max(0f, staminaRegenDelay);
         minStaminaToSprint = Mathf.Clamp(minStaminaToSprint, 0f, maxStamina);
         joystickDeadzone = Mathf.Clamp(joystickDeadzone, 0f, 0.9f);
+
+        // Dash validation
+        dashDistance = Mathf.Max(0.1f, dashDistance);
+        dashDuration = Mathf.Max(0.1f, dashDuration);
+        dashCooldown = Mathf.Max(0f, dashCooldown);
+        dashStaminaCost = Mathf.Max(0f, dashStaminaCost);
     }
     
     #endregion
