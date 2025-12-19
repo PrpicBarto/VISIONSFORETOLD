@@ -128,6 +128,18 @@ public class PlayerAttack : MonoBehaviour
     // Camera reference for better aiming
     private Camera mainCamera;
 
+    [Header("Weapon Visual Settings")]
+    [SerializeField] private Transform weaponHand; // Transform where weapons are held (e.g., right hand bone)
+    [SerializeField] private GameObject swordPrefab; // Melee weapon model
+    [SerializeField] private GameObject bowPrefab; // Ranged weapon model
+    [SerializeField] private GameObject staffPrefab; // Spell weapon model
+    [SerializeField] private bool hideWeaponWhenNotInUse = false; // Hide weapons not currently equipped
+
+    private GameObject currentWeaponInstance; // Currently equipped weapon instance
+    private GameObject swordInstance;
+    private GameObject bowInstance;
+    private GameObject staffInstance;
+
     private void Awake()
     {
         playerInput = GetComponent<PlayerInput>();
@@ -162,6 +174,9 @@ public class PlayerAttack : MonoBehaviour
 
         // Get aim target directly from PlayerMovement
         GetAimTargetFromPlayerMovement();
+
+        // Initialize weapon system
+        InitializeWeapons();
     }
 
     /// <summary>
@@ -802,6 +817,123 @@ public class PlayerAttack : MonoBehaviour
 
     #endregion
 
+    #region Weapon Visual System
+
+    /// <summary>
+    /// Initialize all weapon instances and attach them to the weapon hand
+    /// </summary>
+    private void InitializeWeapons()
+    {
+        if (weaponHand == null)
+        {
+            Debug.LogWarning("Weapon hand transform not assigned! Weapon visuals will not work. Assign the right hand bone in the inspector.");
+            return;
+        }
+
+        // Instantiate sword
+        if (swordPrefab != null)
+        {
+            swordInstance = Instantiate(swordPrefab, weaponHand);
+            swordInstance.transform.localPosition = Vector3.zero;
+            swordInstance.transform.localRotation = Quaternion.identity;
+            swordInstance.name = "Sword_Instance";
+        }
+
+        // Instantiate bow
+        if (bowPrefab != null)
+        {
+            bowInstance = Instantiate(bowPrefab, weaponHand);
+            bowInstance.transform.localPosition = Vector3.zero;
+            bowInstance.transform.localRotation = Quaternion.identity;
+            bowInstance.name = "Bow_Instance";
+        }
+
+        // Instantiate staff
+        if (staffPrefab != null)
+        {
+            staffInstance = Instantiate(staffPrefab, weaponHand);
+            staffInstance.transform.localPosition = Vector3.zero;
+            staffInstance.transform.localRotation = Quaternion.identity;
+            staffInstance.name = "Staff_Instance";
+        }
+
+        // Set initial weapon based on current attack mode
+        UpdateWeaponVisuals();
+
+        Debug.Log($"Weapons initialized on {weaponHand.name}");
+    }
+
+    /// <summary>
+    /// Update which weapon is visible based on current attack mode
+    /// </summary>
+    private void UpdateWeaponVisuals()
+    {
+        if (weaponHand == null) return;
+
+        // Determine which weapon should be active
+        switch (currentAttackMode)
+        {
+            case AttackMode.Melee:
+                SetActiveWeapon(swordInstance);
+                break;
+            case AttackMode.Ranged:
+                SetActiveWeapon(bowInstance);
+                break;
+            case AttackMode.SpellWielding:
+                SetActiveWeapon(staffInstance);
+                break;
+        }
+
+        Debug.Log($"Weapon visual updated to {currentAttackMode} mode");
+    }
+
+    /// <summary>
+    /// Set which weapon instance is active and hide others
+    /// </summary>
+    private void SetActiveWeapon(GameObject activeWeapon)
+    {
+        currentWeaponInstance = activeWeapon;
+
+        // Show/hide weapons based on hideWeaponWhenNotInUse setting
+        if (swordInstance != null)
+        {
+            swordInstance.SetActive(!hideWeaponWhenNotInUse || swordInstance == activeWeapon);
+        }
+
+        if (bowInstance != null)
+        {
+            bowInstance.SetActive(!hideWeaponWhenNotInUse || bowInstance == activeWeapon);
+        }
+
+        if (staffInstance != null)
+        {
+            staffInstance.SetActive(!hideWeaponWhenNotInUse || staffInstance == activeWeapon);
+        }
+
+        // Ensure active weapon is visible
+        if (activeWeapon != null && !activeWeapon.activeSelf)
+        {
+            activeWeapon.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// Get the currently active weapon instance
+    /// </summary>
+    public GameObject GetCurrentWeapon()
+    {
+        return currentWeaponInstance;
+    }
+
+    /// <summary>
+    /// Get specific weapon instances (for animation events, VFX, etc.)
+    /// </summary>
+    public GameObject GetSword() => swordInstance;
+    public GameObject GetBow() => bowInstance;
+    public GameObject GetStaff() => staffInstance;
+
+    #endregion
+
     #region Mode and Spell Cycling
 
     private void CycleAttackMode(int direction)
@@ -817,6 +949,9 @@ public class PlayerAttack : MonoBehaviour
         int currentIndex = (int)currentAttackMode;
         int newIndex = (currentIndex + direction + modeCount) % modeCount;
         currentAttackMode = (AttackMode)modes.GetValue(newIndex);
+
+        // Update weapon visuals when mode changes
+        UpdateWeaponVisuals();
 
         // Update camera zoom when entering/leaving ranged mode
         UpdateCameraZoom();

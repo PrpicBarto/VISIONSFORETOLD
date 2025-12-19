@@ -56,10 +56,16 @@ public abstract class BaseEnemy : MonoBehaviour
         if (health == null) health = GetComponent<Health>();
         if (animator == null) animator = GetComponent<Animator>();
 
-        // Set NavMeshAgent speed
+        // Set NavMeshAgent speed and ensure it's enabled
         if (agent != null)
         {
+            agent.enabled = true; // Explicitly enable
             agent.speed = moveSpeed;
+            Debug.Log($"[{name}] NavMeshAgent initialized - Speed: {agent.speed}, Enabled: {agent.enabled}");
+        }
+        else
+        {
+            Debug.LogError($"[{name}] NavMeshAgent component is missing!");
         }
 
         FindPlayer();
@@ -90,6 +96,8 @@ public abstract class BaseEnemy : MonoBehaviour
     {
         if (isDead || player == null || (health != null && health.IsDead))
         {
+            if (player == null)
+                Debug.LogWarning($"[{name}] Player reference is NULL!");
             return;
         }
         
@@ -100,6 +108,7 @@ public abstract class BaseEnemy : MonoBehaviour
             // Enter combat when player is detected
             if (!hasEnteredCombat && enterCombatOnDetection)
             {
+                Debug.Log($"[{name}] Player detected at distance {distanceToPlayer:F2}!");
                 OnPlayerDetected();
                 hasEnteredCombat = true;
             }
