@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.Events;
+using UnityEngine.SceneManagement;
 
 public class Health : MonoBehaviour
 {
@@ -12,6 +13,13 @@ public class Health : MonoBehaviour
     [SerializeField] private GameObject ragdollPrefab;
     [SerializeField] private bool isPlayer = false;
     [SerializeField] private float ragdollLifetime = 10f;
+
+    [Header("Player Death Scene Settings")]
+    [SerializeField] private bool loadSceneOnPlayerDeath = true;
+    [SerializeField] private string deathSceneName = "MainMenu";
+    [SerializeField] private float deathSceneLoadDelay = 2f;
+    [SerializeField] private bool showDeathMessage = true;
+    [SerializeField] private string deathMessage = "You Died!";
 
     [Header("Health Regeneration")]
     [SerializeField] private bool enableHealthRegeneration = false;
@@ -311,8 +319,55 @@ public class Health : MonoBehaviour
             playerAttack.enabled = false;
         }
 
-        // TODO: Implement respawn system, game over screen, etc.
-        Debug.Log("Player died! Implement respawn or game over logic here.");
+        // Exit combat music
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.ExitCombat();
+        }
+
+        // Show death message if enabled
+        if (showDeathMessage)
+        {
+            Debug.Log($"<color=red>{deathMessage}</color>");
+        }
+
+        // Load death scene (main menu) after delay
+        if (loadSceneOnPlayerDeath)
+        {
+            if (deathSceneLoadDelay > 0)
+            {
+                // Load scene after delay (allows death animation/effects to play)
+                Invoke(nameof(LoadDeathScene), deathSceneLoadDelay);
+                Debug.Log($"Player died! Loading '{deathSceneName}' scene in {deathSceneLoadDelay} seconds...");
+            }
+            else
+            {
+                // Load scene immediately
+                LoadDeathScene();
+            }
+        }
+        else
+        {
+            Debug.Log("Player died! Scene loading is disabled. Enable 'Load Scene On Player Death' in Inspector.");
+        }
+    }
+
+    /// <summary>
+    /// Loads the death scene (usually main menu)
+    /// </summary>
+    private void LoadDeathScene()
+    {
+        Debug.Log($"Loading death scene: {deathSceneName}");
+        
+        try
+        {
+            SceneManager.LoadScene(deathSceneName);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError($"Failed to load scene '{deathSceneName}': {e.Message}");
+            Debug.LogError("Make sure the scene is added to Build Settings (File ? Build Settings ? Add Open Scenes)");
+        }
     }
 
     #endregion

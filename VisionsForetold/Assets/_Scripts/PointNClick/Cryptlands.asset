@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::VisionsForetold.PointNClick.AreaData
   areaName: Cryptlands
   shortDescription: A mysterious location...
-  detailedDescription: IT WORKS!!!
+  detailedDescription: The Cryptlands.. More Soon!
   idleSprite: {fileID: 21300000, guid: 7ddcc995d8dccd847bdf47667a409f28, type: 3}
   hoverSprite: {fileID: 0}
   selectedSprite: {fileID: 0}
