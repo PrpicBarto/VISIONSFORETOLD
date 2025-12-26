@@ -32,6 +32,13 @@ namespace VisionsForetold.Game.SaveSystem
         [SerializeField] private SkillTreeUI skillTreeUI; // Reference to SkillTreeUI component (List-based)
         [SerializeField] private SkillTreeUI_GridBased skillTreeUIGrid; // Reference to SkillTreeUI_GridBased component (Grid-based)
         
+        [Header("HUD Settings")]
+        [Tooltip("HUD Canvas to hide when save menu is open")]
+        [SerializeField] private GameObject hudCanvas;
+        
+        [Tooltip("Pause Menu to disable during save station")]
+        [SerializeField] private PauseMenu pauseMenu;
+
         [Header("Confirmation Dialog")]
         [SerializeField] private GameObject confirmationDialog;
         [SerializeField] private TMP_Text confirmationText;
@@ -92,6 +99,32 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 Debug.LogError("[SaveStationMenu] SaveManager instance not found! Make sure SaveManager exists in the scene.");
             }
+            
+            // Auto-find HUD canvas if not assigned
+            if (hudCanvas == null)
+            {
+                GameObject hudObject = GameObject.Find("HUDCanvas");
+                if (hudObject == null)
+                    hudObject = GameObject.Find("HUD");
+                if (hudObject == null)
+                    hudObject = GameObject.Find("PlayerHUD");
+                    
+                if (hudObject != null)
+                {
+                    hudCanvas = hudObject;
+                    Debug.Log($"[SaveStationMenu] Auto-found HUD: {hudCanvas.name}");
+                }
+            }
+            
+            // Auto-find PauseMenu if not assigned
+            if (pauseMenu == null)
+            {
+                pauseMenu = FindObjectOfType<PauseMenu>();
+                if (pauseMenu != null)
+                {
+                    Debug.Log("[SaveStationMenu] Auto-found PauseMenu");
+                }
+            }
         }
 
         private void InitializeEventSystem()
@@ -142,9 +175,28 @@ namespace VisionsForetold.Game.SaveSystem
         {
             // Initialize all panels to hidden state
             if (menuPanel != null) 
+            {
                 menuPanel.SetActive(false);
+                
+                // Ensure menu panel canvas has proper sort order (above UI border)
+                Canvas menuCanvas = menuPanel.GetComponent<Canvas>();
+                if (menuCanvas == null)
+                {
+                    menuCanvas = menuPanel.AddComponent<Canvas>();
+                }
+                menuCanvas.overrideSorting = true;
+                menuCanvas.sortingOrder = 100; // High sort order to be above UI border
+                
+                // Ensure GraphicRaycaster is present for button interaction
+                if (menuPanel.GetComponent<UnityEngine.UI.GraphicRaycaster>() == null)
+                {
+                    menuPanel.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+                }
+            }
             else
+            {
                 Debug.LogError("[SaveStationMenu] Menu panel not assigned!");
+            }
                 
             if (savePanel != null) 
                 savePanel.SetActive(false);
@@ -179,6 +231,53 @@ namespace VisionsForetold.Game.SaveSystem
             }
         }
 
+        private void Update()
+        {
+            // Handle ESC/Cancel to close menu (if menu is open)
+            if (menuPanel != null && menuPanel.activeSelf)
+            {
+                // Check for ESC key (Keyboard)
+                if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+                {
+                    HandleBackInput();
+                }
+                
+                // Check for Cancel button (Gamepad)
+                if (Gamepad.current != null && Gamepad.current.buttonEast.wasPressedThisFrame)
+                {
+                    HandleBackInput();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Handles back/cancel input (ESC key or B button)
+        /// </summary>
+        private void HandleBackInput()
+        {
+            // If any sub-panel is open, close it first
+            if (savePanel != null && savePanel.activeSelf)
+            {
+                OnCancelSaveClicked();
+                return;
+            }
+            
+            if (skillsPanel != null && skillsPanel.activeSelf)
+            {
+                OnCloseSkillsClicked();
+                return;
+            }
+            
+            if (confirmationDialog != null && confirmationDialog.activeSelf)
+            {
+                OnConfirmNo();
+                return;
+            }
+            
+            // Otherwise close the entire menu
+            OnExitButtonClicked();
+        }
+
         #endregion
 
         #region Menu Control
@@ -196,6 +295,20 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 menuPanel.SetActive(true);
                 Time.timeScale = 0f; // Pause game
+
+                // Hide HUD
+                if (hudCanvas != null)
+                {
+                    hudCanvas.SetActive(false);
+                    Debug.Log("[SaveStationMenu] HUD hidden");
+                }
+
+                // Disable pause menu
+                if (pauseMenu != null)
+                {
+                    pauseMenu.enabled = false;
+                    Debug.Log("[SaveStationMenu] Pause menu disabled");
+                }
 
                 // Set first selected button for gamepad navigation
                 if (enableGamepadNavigation && eventSystem != null && saveButton != null)
@@ -249,6 +362,20 @@ namespace VisionsForetold.Game.SaveSystem
             if (savePanel != null) savePanel.SetActive(false);
             if (skillsPanel != null) skillsPanel.SetActive(false);
             if (confirmationDialog != null) confirmationDialog.SetActive(false);
+
+            // Show HUD again
+            if (hudCanvas != null)
+            {
+                hudCanvas.SetActive(true);
+                Debug.Log("[SaveStationMenu] HUD shown");
+            }
+
+            // Re-enable pause menu
+            if (pauseMenu != null)
+            {
+                pauseMenu.enabled = true;
+                Debug.Log("[SaveStationMenu] Pause menu re-enabled");
+            }
 
             // Clear selected object
             if (eventSystem != null)
@@ -429,6 +556,7 @@ namespace VisionsForetold.Game.SaveSystem
             catch (System.Exception e)
             {
                 Debug.LogError($"[SaveStationMenu] ExecuteSave failed: {e}");
+
                 ShowSaveStatus($"Save Failed: {e.Message}", false);
             }
         }

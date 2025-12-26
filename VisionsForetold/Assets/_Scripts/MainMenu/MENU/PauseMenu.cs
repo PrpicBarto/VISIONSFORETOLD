@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
 using UnityEngine.EventSystems;
+using VisionsForetold.Game.SaveSystem;
 
 /// <summary>
 /// Pause Menu - For in-game pause functionality
@@ -66,6 +67,11 @@ public class PauseMenu : MonoBehaviour
         if (pauseMenuPanel != null)
         {
             pauseMenuPanel.SetActive(false);
+            Debug.Log("[PauseMenu] Pause menu panel found and hidden");
+        }
+        else
+        {
+            Debug.LogError("[PauseMenu] Pause menu panel is NOT assigned! Please assign it in the Inspector.");
         }
 
         // Auto-find first selected button if not assigned
@@ -75,6 +81,7 @@ public class PauseMenu : MonoBehaviour
             if (buttons.Length > 0)
             {
                 firstSelectedButton = buttons[0].gameObject;
+                Debug.Log($"[PauseMenu] Auto-found first button: {firstSelectedButton.name}");
             }
         }
 
@@ -86,6 +93,8 @@ public class PauseMenu : MonoBehaviour
         {
             Resume();
         }
+        
+        Debug.Log("[PauseMenu] Initialized - Press ESC or Start to pause");
     }
 
     private void Update()
@@ -109,10 +118,23 @@ public class PauseMenu : MonoBehaviour
     {
         bool pausePressed = false;
 
-        // Keyboard ESC
-        if (Input.GetKeyDown(pauseKey))
+        // Check if save station menu is open - don't allow pausing
+        SaveStationMenu saveStation = FindObjectOfType<SaveStationMenu>();
+        if (saveStation != null)
+        {
+            // Check if save station menu panel is active
+            if (saveStation.gameObject.activeInHierarchy)
+            {
+                Debug.Log("[PauseMenu] Save station is open - pause blocked");
+                return; // Don't allow pause while in save station
+            }
+        }
+
+        // Keyboard ESC - New Input System
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
         {
             pausePressed = true;
+            Debug.Log("[PauseMenu] ESC key pressed");
         }
 
         // Gamepad Start/Options button
@@ -122,6 +144,7 @@ public class PauseMenu : MonoBehaviour
             {
                 pausePressed = true;
                 lastGamepadInputTime = Time.unscaledTime;
+                Debug.Log("[PauseMenu] Start button pressed");
             }
         }
 

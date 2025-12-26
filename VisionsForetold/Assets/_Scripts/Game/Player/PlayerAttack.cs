@@ -16,9 +16,7 @@ public class PlayerAttack : MonoBehaviour
     public enum SpellType
     {
         Fireball,
-        Lightning,
-        IceBlast,
-        Heal
+        IceBlast
     }
 
     [Header("Attack Settings")]
@@ -57,7 +55,12 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float projectileSpeed = 20f;
     [SerializeField] private float projectileLifetime = 5f;
     [SerializeField] private float arrowFireDelay = 0.5f; // Delay before arrow fires (sync with animation)
-    [SerializeField] private float spellCastDelay = 0.3f; // Delay before spell fires
+    
+    [Header("Spell Cast Delays")]
+    [Tooltip("Delay before fireball projectile spawns (sync with animation)")]
+    [SerializeField] private float fireballCastDelay = 0.4f;
+    [Tooltip("Delay before ice blast projectile spawns (sync with animation)")]
+    [SerializeField] private float iceBlastCastDelay = 0.3f;
 
     [Header("Aiming Settings")]
     [SerializeField] private bool useAimTarget = true; // Whether to use aim target or player forward
@@ -83,9 +86,7 @@ public class PlayerAttack : MonoBehaviour
 
     [Header("Spell Cooldowns")]
     [SerializeField] private float fireballCooldown = 2.0f;
-    [SerializeField] private float lightningCooldown = 3.0f;
     [SerializeField] private float iceBlastCooldown = 2.5f;
-    [SerializeField] private float healCooldown = 5.0f;
 
     [Header("Mode Switch Settings")]
     [SerializeField] private float modeSwitchCooldown = 0.2f; // Reduced for scroll wheel responsiveness
@@ -96,9 +97,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private AudioClip swordSwingSound;
     [SerializeField] private AudioClip bowReleaseSound;
     [SerializeField] private AudioClip fireballCastSound;
-    [SerializeField] private AudioClip lightningCastSound;
     [SerializeField] private AudioClip iceBlastCastSound;
-    [SerializeField] private AudioClip healCastSound;
     [SerializeField] private AudioClip modeSwitchSound;
     [SerializeField] private bool enterCombatOnAttack = true;
     [SerializeField] private float combatTimeoutAfterAttack = 5f;
@@ -109,9 +108,7 @@ public class PlayerAttack : MonoBehaviour
 
     private float lastAttackTime = -Mathf.Infinity;
     private float lastFireballTime = -Mathf.Infinity;
-    private float lastLightningTime = -Mathf.Infinity;
     private float lastIceBlastTime = -Mathf.Infinity;
-    private float lastHealTime = -Mathf.Infinity;
 
     // Input System
     private PlayerInput playerInput;
@@ -534,17 +531,9 @@ public class PlayerAttack : MonoBehaviour
                 CastFireball();
                 lastFireballTime = Time.time;
                 break;
-            case SpellType.Lightning:
-                CastLightning();
-                lastLightningTime = Time.time;
-                break;
             case SpellType.IceBlast:
                 CastIceBlast();
                 lastIceBlastTime = Time.time;
-                break;
-            case SpellType.Heal:
-                CastHeal();
-                lastHealTime = Time.time;
                 break;
         }
 
@@ -559,23 +548,28 @@ public class PlayerAttack : MonoBehaviour
     {
         if (useAimTarget && aimTarget != null)
         {
-            // Calculate direction to aim target with height adjustment
+            // Calculate direction from spawn point to aim target
             Vector3 spawnPosition = GetProjectileSpawnPosition();
             Vector3 targetPosition = aimTarget.position;
 
-            // Adjust target position to be at a reasonable height
-            targetPosition.y = spawnPosition.y;
-
+            // Calculate direction (don't force Y to be equal - allow vertical aiming)
             Vector3 direction = (targetPosition - spawnPosition).normalized;
 
+            // Debug visualization
             Debug.DrawRay(spawnPosition, direction * 10f, Color.red, 0.5f);
+            Debug.Log($"[PlayerAttack] Shooting direction: {direction}, From: {spawnPosition}, To: {targetPosition}");
+            
             return direction;
         }
         else
         {
-            // Use player's forward direction as fallback
-            Debug.DrawRay(GetProjectileSpawnPosition(), transform.forward * 10f, Color.blue, 0.5f);
-            return transform.forward;
+            // Use player's forward direction as fallback (where character is facing)
+            Vector3 forwardDirection = transform.forward;
+            
+            Debug.DrawRay(GetProjectileSpawnPosition(), forwardDirection * 10f, Color.blue, 0.5f);
+            Debug.Log($"[PlayerAttack] Using character forward direction: {forwardDirection}");
+            
+            return forwardDirection;
         }
     }
 
@@ -591,7 +585,12 @@ public class PlayerAttack : MonoBehaviour
         if (projectilePrefab == null) return;
 
         Vector3 spawnPosition = GetProjectileSpawnPosition();
-        GameObject projectile = Instantiate(projectilePrefab, spawnPosition, Quaternion.LookRotation(direction));
+        
+        // Create rotation that points in the shoot direction
+        Quaternion projectileRotation = Quaternion.LookRotation(direction);
+        
+        // Instantiate projectile with correct rotation
+        GameObject projectile = Instantiate(projectilePrefab, spawnPosition, projectileRotation);
 
         // Initialize projectile damage component
         ProjectileDamage projectileDamage = projectile.GetComponent<ProjectileDamage>();
@@ -601,11 +600,21 @@ public class PlayerAttack : MonoBehaviour
             projectileDamage.SetProjectileType(projectileType);
         }
 
-        // Add velocity to projectile
+        // Add velocity to projectile in the correct direction
         Rigidbody rb = projectile.GetComponent<Rigidbody>();
         if (rb != null)
         {
+            // Set the velocity in the shoot direction
             rb.linearVelocity = direction * speed;
+            
+            // Ensure the rigidbody doesn't auto-rotate due to physics
+            rb.constraints = RigidbodyConstraints.FreezeRotation;
+            
+            Debug.Log($"[PlayerAttack] Projectile fired! Direction: {direction}, Speed: {speed}, Position: {spawnPosition}");
+        }
+        else
+        {
+            Debug.LogWarning($"[PlayerAttack] Projectile '{projectilePrefab.name}' is missing Rigidbody component!");
         }
 
         // Destroy projectile after lifetime
@@ -621,9 +630,7 @@ public class PlayerAttack : MonoBehaviour
         return spell switch
         {
             SpellType.Fireball => Time.time >= lastFireballTime + fireballCooldown,
-            SpellType.Lightning => Time.time >= lastLightningTime + lightningCooldown,
             SpellType.IceBlast => Time.time >= lastIceBlastTime + iceBlastCooldown,
-            SpellType.Heal => Time.time >= lastHealTime + healCooldown,
             _ => true
         };
     }
@@ -645,14 +652,14 @@ public class PlayerAttack : MonoBehaviour
         if (fireballProjectilePrefab != null)
         {
             // Delay projectile firing to sync with cast animation
-            StartCoroutine(FireSpellDelayed(fireballProjectilePrefab, spellCastDelay, projectileSpeed * 0.8f, ProjectileDamage.ProjectileType.Fireball));
+            StartCoroutine(FireSpellDelayed(fireballProjectilePrefab, fireballCastDelay, projectileSpeed * 0.8f, ProjectileDamage.ProjectileType.Fireball));
         }
         else
         {
             // Fallback to raycast-based fireball (also delayed)
-            StartCoroutine(CastFireballRaycastDelayed(spellCastDelay));
+            StartCoroutine(CastFireballRaycastDelayed(fireballCastDelay));
         }
-        Debug.Log("Casting Fireball - dealing fire damage!");
+        Debug.Log($"Casting Fireball - projectile will spawn after {fireballCastDelay}s delay!");
     }
 
     /// <summary>
@@ -694,41 +701,6 @@ public class PlayerAttack : MonoBehaviour
         }
     }
 
-    private void CastLightning()
-    {
-        // Play lightning cast sound
-        if (lightningCastSound != null && AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX(lightningCastSound);
-        }
-
-        Vector3 castDirection = GetShootDirection();
-        Vector3 castOrigin = GetProjectileSpawnPosition();
-
-        if (Physics.Raycast(castOrigin, castDirection, out RaycastHit hit, spellCastRange, aimingLayerMask))
-        {
-            // Try new Health system first
-            var targetHealth = hit.collider.GetComponent<Health>();
-            if (targetHealth != null)
-            {
-                targetHealth.TakeDamage(attackDamage * 3);
-            }
-            else
-            {
-                // Fallback to old system
-                var enemyHealth = hit.collider.GetComponent<Health>();
-                if (enemyHealth != null)
-                {
-                    enemyHealth.TakeDamage(attackDamage * 3);
-                }
-            }
-
-            // TODO: Add lightning visual effect from cast point to hit point
-            Debug.DrawLine(castOrigin, hit.point, Color.cyan, 1f);
-        }
-        Debug.Log("Casting Lightning - instant electrical damage!");
-    }
-
     private void CastIceBlast()
     {
         // Play ice blast cast sound
@@ -746,14 +718,14 @@ public class PlayerAttack : MonoBehaviour
         if (iceBlastProjectilePrefab != null)
         {
             // Delay projectile firing to sync with cast animation
-            StartCoroutine(FireSpellDelayed(iceBlastProjectilePrefab, spellCastDelay, projectileSpeed * 0.6f, ProjectileDamage.ProjectileType.IceBlast));
+            StartCoroutine(FireSpellDelayed(iceBlastProjectilePrefab, iceBlastCastDelay, projectileSpeed * 0.6f, ProjectileDamage.ProjectileType.IceBlast));
         }
         else
         {
             // Fallback to area effect at target location (also delayed)
-            StartCoroutine(CastIceBlastAreaDelayed(spellCastDelay));
+            StartCoroutine(CastIceBlastAreaDelayed(iceBlastCastDelay));
         }
-        Debug.Log("Casting Ice Blast - freezing area damage!");
+        Debug.Log($"Casting Ice Blast - projectile will spawn after {iceBlastCastDelay}s delay!");
     }
 
     /// <summary>
@@ -768,25 +740,6 @@ public class PlayerAttack : MonoBehaviour
         yield return new WaitForSeconds(delay);
 
         DealAreaDamage(targetPosition, 4f, attackDamage);
-    }
-
-    private void CastHeal()
-    {
-        // Play heal cast sound
-        if (healCastSound != null && AudioManager.Instance != null)
-        {
-            AudioManager.Instance.PlaySFX(healCastSound);
-        }
-
-        // Heal the player
-        var playerHealth = GetComponent<Health>();
-        if (playerHealth != null)
-        {
-            playerHealth.Heal(attackDamage * 2);
-        }
-
-        // TODO: Add healing visual effects
-        Debug.Log("Casting Heal - restoring health!");
     }
 
     private void DealAreaDamage(Vector3 center, float radius, int damage)
@@ -1071,9 +1024,7 @@ public class PlayerAttack : MonoBehaviour
         return spell switch
         {
             SpellType.Fireball => Mathf.Max(0, fireballCooldown - (Time.time - lastFireballTime)),
-            SpellType.Lightning => Mathf.Max(0, lightningCooldown - (Time.time - lastLightningTime)),
             SpellType.IceBlast => Mathf.Max(0, iceBlastCooldown - (Time.time - lastIceBlastTime)),
-            SpellType.Heal => Mathf.Max(0, healCooldown - (Time.time - lastHealTime)),
             _ => 0
         };
     }
