@@ -84,7 +84,18 @@ public class SceneUIFixer : MonoBehaviour
         }
 
         // Reactivate / enable map objects (common names/tags)
-        var mapByTag = GameObject.FindGameObjectWithTag("Map");
+        // Try to find map by tag - but check if tag exists first
+        GameObject mapByTag = null;
+        try
+        {
+            mapByTag = GameObject.FindGameObjectWithTag("Map");
+        }
+        catch (UnityException)
+        {
+            // Tag doesn't exist - that's okay, we'll try by name instead
+            Debug.Log("[SceneUIFixer] 'Map' tag not defined, searching by name instead");
+        }
+        
         if (mapByTag != null)
         {
             mapByTag.SetActive(true);
