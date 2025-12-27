@@ -11913,6 +11913,7 @@ GameObject:
   - component: {fileID: 592326309}
   - component: {fileID: 592326308}
   - component: {fileID: 592326307}
+  - component: {fileID: 592326311}
   m_Layer: 5
   m_Name: Canvas
   m_TagString: Untagged
@@ -12004,6 +12005,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &592326311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 592326306}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bd9828535bd17242af3348c39ee0973, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneUIFixer
 --- !u!1001 &603652238
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -18834,6 +18847,7 @@ GameObject:
   - component: {fileID: 815083027}
   - component: {fileID: 815083031}
   - component: {fileID: 815083032}
+  - component: {fileID: 815083033}
   m_Layer: 5
   m_Name: HUD_Canvas
   m_TagString: Untagged
@@ -18968,6 +18982,18 @@ MonoBehaviour:
   numberLifetime: 1.5
   numberRiseSpeed: 2
   numberFadeSpeed: 1
+--- !u!114 &815083033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 815083026}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bd9828535bd17242af3348c39ee0973, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneUIFixer
 --- !u!1001 &820622185
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -35321,6 +35347,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1436026500}
   - component: {fileID: 1436026499}
+  - component: {fileID: 1436026501}
   m_Layer: 0
   m_Name: PauseMenu
   m_TagString: Untagged
@@ -35365,6 +35392,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1436026501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1436026498}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bd9828535bd17242af3348c39ee0973, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneUIFixer
 --- !u!1001 &1436324551
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -43095,6 +43134,7 @@ GameObject:
   - component: {fileID: 1787562059}
   - component: {fileID: 1787562058}
   - component: {fileID: 1787562057}
+  - component: {fileID: 1787562062}
   m_Layer: 5
   m_Name: SaveCanvas
   m_TagString: Untagged
@@ -43223,6 +43263,18 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0, y: 0}
+--- !u!114 &1787562062
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1787562056}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3bd9828535bd17242af3348c39ee0973, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SceneUIFixer
 --- !u!1 &1787769703
 GameObject:
   m_ObjectHideFlags: 0
