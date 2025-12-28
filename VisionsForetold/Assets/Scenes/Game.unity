@@ -35337,73 +35337,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 64ec8e4cfab956f45af52fcbf56e6778, type: 3}
   m_PrefabInstance: {fileID: 1430622201}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &1436026498
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1436026500}
-  - component: {fileID: 1436026499}
-  - component: {fileID: 1436026501}
-  m_Layer: 0
-  m_Name: PauseMenu
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1436026499
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1436026498}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 77f9a77d19512d143942e27f2835ec36, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PauseMenu
-  pauseMenuPanel: {fileID: 1787769703}
-  firstSelectedButton: {fileID: 1626376964}
-  mainMenuSceneName: MainMenu
-  pauseOnStart: 0
-  pauseKey: 27
-  allowGamepadPause: 1
-  autoDetectInputMethod: 1
-  freezeTimeWhenPaused: 1
-  showCursorWhenPaused: 1
-  lockCursorWhenUnpaused: 0
---- !u!4 &1436026500
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1436026498}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1436026501
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1436026498}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3bd9828535bd17242af3348c39ee0973, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::SceneUIFixer
 --- !u!1001 &1436324551
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -43232,7 +43165,7 @@ MonoBehaviour:
   skillTreeUI: {fileID: 0}
   skillTreeUIGrid: {fileID: 277871324}
   hudCanvas: {fileID: 815083026}
-  pauseMenu: {fileID: 1436026499}
+  pauseMenu: {fileID: 0}
   confirmationDialog: {fileID: 961283126}
   confirmationText: {fileID: 668470531}
   confirmYesButton: {fileID: 778394068}
@@ -43292,7 +43225,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &1787769704
 RectTransform:
   m_ObjectHideFlags: 0
@@ -58437,4 +58370,3 @@ SceneRoots:
   - {fileID: 59323679}
   - {fileID: 917290113}
   - {fileID: 797456493}
-  - {fileID: 1436026500}
