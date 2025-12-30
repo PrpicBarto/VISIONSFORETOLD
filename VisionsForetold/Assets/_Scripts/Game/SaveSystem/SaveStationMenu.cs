@@ -35,9 +35,6 @@ namespace VisionsForetold.Game.SaveSystem
         [Header("HUD Settings")]
         [Tooltip("HUD Canvas to hide when save menu is open")]
         [SerializeField] private GameObject hudCanvas;
-        
-        [Tooltip("Pause Menu to disable during save station")]
-        [SerializeField] private PauseMenu pauseMenu;
 
         [Header("Confirmation Dialog")]
         [SerializeField] private GameObject confirmationDialog;
@@ -113,16 +110,6 @@ namespace VisionsForetold.Game.SaveSystem
                 {
                     hudCanvas = hudObject;
                     Debug.Log($"[SaveStationMenu] Auto-found HUD: {hudCanvas.name}");
-                }
-            }
-            
-            // Auto-find PauseMenu if not assigned
-            if (pauseMenu == null)
-            {
-                pauseMenu = FindObjectOfType<PauseMenu>();
-                if (pauseMenu != null)
-                {
-                    Debug.Log("[SaveStationMenu] Auto-found PauseMenu");
                 }
             }
         }
@@ -303,13 +290,6 @@ namespace VisionsForetold.Game.SaveSystem
                     Debug.Log("[SaveStationMenu] HUD hidden");
                 }
 
-                // Disable pause menu
-                if (pauseMenu != null)
-                {
-                    pauseMenu.enabled = false;
-                    Debug.Log("[SaveStationMenu] Pause menu disabled");
-                }
-
                 // Set first selected button for gamepad navigation
                 if (enableGamepadNavigation && eventSystem != null && saveButton != null)
                 {
@@ -368,13 +348,6 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 hudCanvas.SetActive(true);
                 Debug.Log("[SaveStationMenu] HUD shown");
-            }
-
-            // Re-enable pause menu
-            if (pauseMenu != null)
-            {
-                pauseMenu.enabled = true;
-                Debug.Log("[SaveStationMenu] Pause menu re-enabled");
             }
 
             // Clear selected object

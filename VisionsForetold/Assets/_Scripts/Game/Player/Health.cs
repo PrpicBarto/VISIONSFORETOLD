@@ -359,6 +359,13 @@ public class Health : MonoBehaviour
     {
         Debug.Log($"Loading death scene: {deathSceneName}");
         
+        // IMPORTANT: Clean up before loading main menu to prevent conflicts
+        // Reset time scale
+        Time.timeScale = 1f;
+        
+        // Destroy any DontDestroyOnLoad objects from gameplay
+        CleanupGameplayObjects();
+        
         try
         {
             SceneManager.LoadScene(deathSceneName);
@@ -368,6 +375,34 @@ public class Health : MonoBehaviour
             Debug.LogError($"Failed to load scene '{deathSceneName}': {e.Message}");
             Debug.LogError("Make sure the scene is added to Build Settings (File ? Build Settings ? Add Open Scenes)");
         }
+    }
+    
+    /// <summary>
+    /// Cleanup gameplay objects before returning to main menu
+    /// </summary>
+    private void CleanupGameplayObjects()
+    {
+        // Destroy the player GameObject entirely
+        if (gameObject != null)
+        {
+            Destroy(gameObject);
+        }
+        
+        // Find and destroy any other player-related objects that might persist
+        GameObject[] rootObjects = SceneManager.GetActiveScene().GetRootGameObjects();
+        foreach (GameObject obj in rootObjects)
+        {
+            // Destroy player and player-related objects
+            if (obj.CompareTag("Player") || 
+                obj.name.Contains("Player") ||
+                obj.GetComponent<PlayerMovement>() != null ||
+                obj.GetComponent<PlayerAttack>() != null)
+            {
+                Destroy(obj);
+            }
+        }
+        
+        Debug.Log("[Health] Cleaned up gameplay objects before loading death scene");
     }
 
     #endregion

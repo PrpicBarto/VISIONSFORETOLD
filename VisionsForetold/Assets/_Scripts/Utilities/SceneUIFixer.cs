@@ -38,12 +38,39 @@ public class SceneUIFixer : MonoBehaviour
     {
         yield return null;
 
-        // Make sure game isn't left paused
-        Time.timeScale = 1f;
+        // Check if we're in gameplay scene (not main menu)
+        string currentScene = SceneManager.GetActiveScene().name.ToLower();
+        bool isMainMenu = currentScene.Contains("menu") || currentScene.Contains("title");
+        
+        // Only reset time/cursor in menu scenes, not during gameplay
+        if (isMainMenu)
+        {
+            // Make sure game isn't left paused
+            Time.timeScale = 1f;
 
-        // Ensure cursor is visible and unlocked for menus
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
+            // Ensure cursor is visible and unlocked for menus
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            
+            // DON'T re-enable PlayerInput in menu scenes - they shouldn't have player input!
+            // Remove any leftover player objects from gameplay
+            GameObject[] allObjects = FindObjectsOfType<GameObject>(true);
+            foreach (GameObject obj in allObjects)
+            {
+                // Check if it's a player object from gameplay that shouldn't be in menu
+                if (obj.scene.name != currentScene && 
+                    (obj.CompareTag("Player") || obj.name.Contains("Player")))
+                {
+                    Destroy(obj);
+                    Debug.Log($"[SceneUIFixer] Destroyed leftover player object: {obj.name}");
+                }
+            }
+        }
+        else
+        {
+            // In gameplay scenes, don't mess with time scale or cursor
+            // (Let the game control these)
+        }
 
         // Ensure EventSystem exists
         if (EventSystem.current == null)
@@ -51,15 +78,7 @@ public class SceneUIFixer : MonoBehaviour
             GameObject es = new GameObject("EventSystem");
             var eventSystem = es.AddComponent<EventSystem>();
             es.AddComponent<StandaloneInputModule>();
-            DontDestroyOnLoad(es); // optional: keep it between loads
             Debug.Log("[SceneUIFixer] Created missing EventSystem");
-        }
-
-        // Re-enable PlayerInput components (in case they were disabled)
-        var inputs = FindObjectsOfType<PlayerInput>(true);
-        foreach (var pi in inputs)
-        {
-            if (!pi.enabled) pi.enabled = true;
         }
 
         // Restore CanvasGroup blocksRaycasts for all canvases (so buttons receive clicks)
@@ -115,25 +134,28 @@ public class SceneUIFixer : MonoBehaviour
             }
         }
 
-        // Select the first interactable Button so gamepad/keyboard navigation works immediately
-        var buttons = FindObjectsOfType<Button>(true);
-        Button first = null;
-        foreach (var b in buttons)
+        // Select the first interactable Button only in menu scenes
+        if (isMainMenu)
         {
-            if (b.gameObject.activeInHierarchy && b.interactable)
+            var buttons = FindObjectsOfType<Button>(true);
+            Button first = null;
+            foreach (var b in buttons)
             {
-                first = b;
-                break;
+                if (b.gameObject.activeInHierarchy && b.interactable)
+                {
+                    first = b;
+                    break;
+                }
+            }
+
+            if (first != null && EventSystem.current != null)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+                EventSystem.current.SetSelectedGameObject(first.gameObject);
             }
         }
 
-        if (first != null && EventSystem.current != null)
-        {
-            EventSystem.current.SetSelectedGameObject(null);
-            EventSystem.current.SetSelectedGameObject(first.gameObject);
-        }
-
-        Debug.Log("[SceneUIFixer] UI reinitialization complete");
+        Debug.Log("[SceneUIFixer] UI reinitialization complete for scene: " + currentScene);
     }
 
     private void EnableMonoBehavioursOn(GameObject root)
