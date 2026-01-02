@@ -110,6 +110,12 @@ namespace _Scripts.Game.Enemy
                     lastAttackTime = Time.time + 1f; //duži cooldown nakon combo-a
                 }
             }
+            
+            if (VFXManager.Instance != null)
+            {
+                Vector3 attackPos = transform.position + transform.forward * 0.5f;
+                VFXManager.Instance.PlayWraithClaw(attackPos, transform.forward);
+            }
         }
 
         private void MagicExplosion()

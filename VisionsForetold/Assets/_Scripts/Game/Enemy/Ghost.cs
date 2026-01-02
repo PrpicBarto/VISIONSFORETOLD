@@ -119,6 +119,12 @@ namespace _Scripts.Game.Enemy
                 projDamage.Initialize(soulBlastDamage, gameObject, "Player");
                 projDamage.SetProjectileType(ProjectileDamage.ProjectileType.EnemyProjectile);
             }
+            
+            if (VFXManager.Instance != null)
+            {
+                Vector3 shootDirection = (player.position - firePoint.position).normalized;
+                VFXManager.Instance.PlayGhostShot(firePoint.position, direction);
+            }
         }
     }
 }

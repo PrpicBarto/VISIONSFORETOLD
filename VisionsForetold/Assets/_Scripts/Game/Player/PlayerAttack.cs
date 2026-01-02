@@ -26,6 +26,8 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private AttackMode currentAttackMode = AttackMode.Melee;
     [SerializeField] private TMP_Text attackModeText;
 
+    [Header("VFX")] [SerializeField] private bool enableVFX = true;
+    
     [Header("Melee Attack Settings")]
     [Tooltip("Angle of the melee attack cone in degrees")]
     [SerializeField] private float meleeAttackAngle = 90f;
@@ -358,6 +360,12 @@ public class PlayerAttack : MonoBehaviour
             playerMovement.TriggerComboAttack(currentComboStep);
         }
 
+        if (enableVFX && VFXManager.Instance != null)
+        {
+            Vector3 slashPos = transform.position + transform.forward * 1f + Vector3.up;
+            VFXManager.Instance.PlaySwordSlash(slashPos, transform.forward);
+        }
+
         Debug.Log($"Combo Hit {currentComboStep}/{comboCount} - Damaged {enemiesHit} enemies for {damage} damage{(isFinalHit ? " (FINAL HIT!)" : "")}");
         UpdateComboText();
 
@@ -495,6 +503,11 @@ public class PlayerAttack : MonoBehaviour
         {
             Debug.LogWarning("Arrow projectile prefab not assigned!");
             return;
+        }
+        
+        if (enableVFX && VFXManager.Instance != null)
+        {
+            VFXManager.Instance.PlayArrowShot(projectileSpawnPoint.position, GetShootDirection());
         }
 
         // Delay arrow firing to sync with animation
@@ -649,6 +662,11 @@ public class PlayerAttack : MonoBehaviour
             playerMovement.TriggerSpellFireball();
         }
 
+        if (enableVFX && VFXManager.Instance != null)
+        {
+            VFXManager.Instance.PlaySpellCast(spellCastPoint.position, 0); // 0 = fireball
+        }
+        
         if (fireballProjectilePrefab != null)
         {
             // Delay projectile firing to sync with cast animation
@@ -715,6 +733,11 @@ public class PlayerAttack : MonoBehaviour
             playerMovement.TriggerSpellIce();
         }
 
+        if (enableVFX && VFXManager.Instance != null)
+        {
+            VFXManager.Instance.PlaySpellCast(spellCastPoint.position, 2); // 2 = ice
+        }
+        
         if (iceBlastProjectilePrefab != null)
         {
             // Delay projectile firing to sync with cast animation

@@ -113,6 +113,25 @@ public class Health : MonoBehaviour
                 playerMovement.TriggerHurt();
             }
         }
+        
+        if (VFXManager.Instance != null)
+        {
+            Vector3 hitPos = transform.position + Vector3.up * 1.5f;
+        
+            // Different effect based on what was hit
+            if (CompareTag("Enemy"))
+            {
+                VFXManager.Instance.PlayHitEffect(hitPos, VFXManager.HitType.Blood);
+            }
+            else if (CompareTag("Player"))
+            {
+                VFXManager.Instance.PlayHitEffect(hitPos, VFXManager.HitType.Blood);
+            }
+            else
+            {
+                VFXManager.Instance.PlayHitEffect(hitPos, VFXManager.HitType.Physical);
+            }
+        }
 
         // Invoke events
         OnDamageTaken?.Invoke(damage);

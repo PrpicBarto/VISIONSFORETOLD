@@ -27766,6 +27766,65 @@ Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 64ec8e4cfab956f45af52fcbf56e6778, type: 3}
   m_PrefabInstance: {fileID: 1158048670}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &1158119335
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1158119337}
+  - component: {fileID: 1158119336}
+  m_Layer: 0
+  m_Name: VFXManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1158119336
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1158119335}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 596cd886a01f91341a770dbb06b57897, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VFXManager
+  swordSlashEffect: {fileID: 0}
+  arrowShotEffect: {fileID: 0}
+  spellCastEffects: []
+  hitSparksEffect: {fileID: 0}
+  bloodEffect: {fileID: 0}
+  magicHitEffect: {fileID: 0}
+  walkDustEffect: {fileID: 0}
+  dashEffect: {fileID: 0}
+  ghoulAttackEffect: {fileID: 0}
+  ghostShotEffect: {fileID: 0}
+  wraithClawEffect: {fileID: 0}
+  tornadoEffect: {fileID: 0}
+  groundSlamEffect: {fileID: 0}
+  bossChargeEffect: {fileID: 0}
+  defaultLifetime: 2
+--- !u!4 &1158119337
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1158119335}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1160490161
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -36799,6 +36858,7 @@ MonoBehaviour:
   attackCooldown: 1
   currentAttackMode: 0
   attackModeText: {fileID: 534096375}
+  enableVFX: 1
   meleeAttackAngle: 90
   useSimpleSphereDetection: 0
   maxMeleeTargets: 5
@@ -50112,6 +50172,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 3284537483637963828, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       insertIndex: -1
       addedObject: {fileID: 5342806458869551362}
+    - targetCorrespondingSourceObject: {fileID: 3284537483637963828, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 5342806458869551363}
     - targetCorrespondingSourceObject: {fileID: 5589124656656368763, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
       insertIndex: -1
       addedObject: {fileID: 555052462}
@@ -50209,6 +50272,11 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 498630303}
   m_SourcePrefab: {fileID: 100100000, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
+--- !u!54 &1134027469045710364 stripped
+Rigidbody:
+  m_CorrespondingSourceObject: {fileID: 530925987039731957, guid: 1ff26c54d22b7fc45adb5eb424dabbac, type: 3}
+  m_PrefabInstance: {fileID: 1134027469045710363}
+  m_PrefabAsset: {fileID: 0}
 --- !u!198 &5076276201778502456
 ParticleSystem:
   m_ObjectHideFlags: 0
@@ -55080,6 +55148,22 @@ MonoBehaviour:
   OnSkillPointGained:
     m_PersistentCalls:
       m_Calls: []
+--- !u!114 &5342806458869551363
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 789652945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 383a94cb731fd9c4a81cd2942066d6e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FootstepVFX
+  stepInterval: 0.5
+  minimumSpeed: 0.5
+  effectOffset: {x: 0, y: 0.1, z: 0}
+  rb: {fileID: 1134027469045710364}
 --- !u!4 &5499582506850255805
 Transform:
   m_ObjectHideFlags: 0
@@ -55216,3 +55300,4 @@ SceneRoots:
   - {fileID: 1470849025}
   - {fileID: 1678707243}
   - {fileID: 659461709}
+  - {fileID: 1158119337}

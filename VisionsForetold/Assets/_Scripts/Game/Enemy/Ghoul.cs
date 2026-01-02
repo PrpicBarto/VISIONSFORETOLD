@@ -91,6 +91,12 @@ namespace _Scripts.Game.Enemy
             
             LookAtPlayer();
             
+            if (VFXManager.Instance != null)
+            {
+                Vector3 attackPos = transform.position + transform.forward * 1f;
+                VFXManager.Instance.PlayGhoulAttack(attackPos);
+            }
+            
             // Trigger attack animation using base class method
             TriggerAttackAnimation();
             
