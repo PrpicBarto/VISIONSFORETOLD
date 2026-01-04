@@ -67,6 +67,9 @@ public class OptionsMenu : MonoBehaviour
         InitializeQualitySettings();
         InitializeResolutionSettings();
 
+        // Remove old listeners before adding new ones
+        RemoveAllListeners();
+
         // Add listeners
         if (qualityDropdown != null)
             qualityDropdown.onValueChanged.AddListener(SetQuality);
@@ -98,6 +101,36 @@ public class OptionsMenu : MonoBehaviour
             invertYToggle.onValueChanged.AddListener(SetInvertY);
     }
 
+    private void RemoveAllListeners()
+    {
+        if (qualityDropdown != null)
+            qualityDropdown.onValueChanged.RemoveAllListeners();
+
+        if (resolutionDropdown != null)
+            resolutionDropdown.onValueChanged.RemoveAllListeners();
+
+        if (fullscreenToggle != null)
+            fullscreenToggle.onValueChanged.RemoveAllListeners();
+
+        if (vsyncToggle != null)
+            vsyncToggle.onValueChanged.RemoveAllListeners();
+
+        if (masterVolumeSlider != null)
+            masterVolumeSlider.onValueChanged.RemoveAllListeners();
+
+        if (musicVolumeSlider != null)
+            musicVolumeSlider.onValueChanged.RemoveAllListeners();
+
+        if (sfxVolumeSlider != null)
+            sfxVolumeSlider.onValueChanged.RemoveAllListeners();
+
+        if (mouseSensitivitySlider != null)
+            mouseSensitivitySlider.onValueChanged.RemoveAllListeners();
+
+        if (invertYToggle != null)
+            invertYToggle.onValueChanged.RemoveAllListeners();
+    }
+
     private void InitializeQualitySettings()
     {
         if (qualityDropdown == null) return;
@@ -106,7 +139,7 @@ public class OptionsMenu : MonoBehaviour
 
         List<string> qualityNames = new List<string>();
         string[] qualityLevels = QualitySettings.names;
-        
+
         foreach (string quality in qualityLevels)
         {
             qualityNames.Add(quality);
@@ -186,9 +219,7 @@ public class OptionsMenu : MonoBehaviour
 
     public void SetMasterVolume(float volume)
     {
-        // This will be integrated with AudioManager later
         AudioListener.volume = volume;
-        
         PlayerPrefs.SetFloat(masterVolumeKey, volume);
         PlayerPrefs.Save();
 
@@ -202,7 +233,6 @@ public class OptionsMenu : MonoBehaviour
 
     public void SetMusicVolume(float volume)
     {
-        // This will be integrated with AudioManager later
         PlayerPrefs.SetFloat(musicVolumeKey, volume);
         PlayerPrefs.Save();
 
@@ -216,7 +246,6 @@ public class OptionsMenu : MonoBehaviour
 
     public void SetSFXVolume(float volume)
     {
-        // This will be integrated with AudioManager later
         PlayerPrefs.SetFloat(sfxVolumeKey, volume);
         PlayerPrefs.Save();
 
