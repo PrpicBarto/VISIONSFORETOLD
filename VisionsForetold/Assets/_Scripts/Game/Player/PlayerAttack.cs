@@ -22,7 +22,7 @@ public class PlayerAttack : MonoBehaviour
     [Header("Attack Settings")]
     [SerializeField] private float attackRange = 2.0f;
     [SerializeField] private int attackDamage = 10;
-    [SerializeField] private float attackCooldown = 1.0f;
+    [SerializeField] private float attackCooldown = 0.6f; // Reduced from 1.0s to allow combo flow
     [SerializeField] private AttackMode currentAttackMode = AttackMode.Melee;
     [SerializeField] private TMP_Text attackModeText;
 
@@ -40,8 +40,8 @@ public class PlayerAttack : MonoBehaviour
 
     [Header("Melee Combo Settings")]
     [SerializeField] private int comboCount = 3; // Number of hits in combo
-    [SerializeField] private float comboWindow = 1.5f; // Time window to continue combo
-    [SerializeField] private float comboResetDelay = 0.5f; // Delay before combo can restart
+    [SerializeField] private float comboWindow = 2.5f; // Time window to continue combo (INCREASED for better flow)
+    [SerializeField] private float comboResetDelay = 0.8f; // Delay before combo can restart (INCREASED to prevent overlap)
     [SerializeField] private float finalHitDamageMultiplier = 2.5f; // Damage multiplier for final hit
     [SerializeField] private TMP_Text comboText; // UI text to show combo progress
 
@@ -330,50 +330,73 @@ public class PlayerAttack : MonoBehaviour
             AudioManager.Instance.PlaySFX(swordSwingSound);
         }
 
-        // Update combo
+        // Update combo progression
         if (Time.time - lastComboHitTime > comboWindow || comboResetInProgress)
         {
+            // Reset to first hit if window expired or combo was reset
             currentComboStep = 1;
             comboResetInProgress = false;
+            Debug.Log("[PlayerAttack] Starting new combo chain");
         }
         else
         {
+            // Continue combo chain
             currentComboStep++;
+            Debug.Log($"[PlayerAttack] Continuing combo: step {currentComboStep}");
         }
 
-        // Clamp combo step
-        currentComboStep = Mathf.Clamp(currentComboStep, 1, comboCount);
+        // Ensure combo step stays within valid range
+        if (currentComboStep > comboCount)
+        {
+            // If somehow exceeded max, reset to first hit
+            currentComboStep = 1;
+            comboResetInProgress = false;
+            Debug.LogWarning("[PlayerAttack] Combo exceeded max count, resetting to 1");
+        }
+        
+        // Update last hit time
         lastComboHitTime = Time.time;
 
         // Check if this is the final hit
         bool isFinalHit = currentComboStep >= comboCount;
 
-        // Calculate damage
+        // Calculate damage (final hit deals extra damage)
         int damage = isFinalHit ? Mathf.RoundToInt(attackDamage * finalHitDamageMultiplier) : attackDamage;
 
-        // Perform cone attack
+        // Perform cone attack to damage enemies
         int enemiesHit = PerformConeAttack(damage, isFinalHit);
 
-        // Trigger combo attack animation with combo step
+        // CRITICAL: Trigger combo attack animation BEFORE anything else
         if (playerMovement != null)
         {
             playerMovement.TriggerComboAttack(currentComboStep);
+            Debug.Log($"[PlayerAttack] ? Triggered combo animation for step {currentComboStep}/{comboCount}");
+        }
+        else
+        {
+            Debug.LogError("[PlayerAttack] PlayerMovement is null! Cannot trigger animation!");
         }
 
+        // Play VFX if enabled
         if (enableVFX && VFXManager.Instance != null)
         {
             Vector3 slashPos = transform.position + transform.forward * 1f + Vector3.up;
             VFXManager.Instance.PlaySwordSlash(slashPos, transform.forward);
         }
 
-        Debug.Log($"Combo Hit {currentComboStep}/{comboCount} - Damaged {enemiesHit} enemies for {damage} damage{(isFinalHit ? " (FINAL HIT!)" : "")}");
+        // Log combo progress
+        string finalHitText = isFinalHit ? " (?? FINAL HIT!)" : "";
+        Debug.Log($"<color=yellow>Combo Hit {currentComboStep}/{comboCount}{finalHitText} - Damaged {enemiesHit} enemies for {damage} damage</color>");
+        
+        // Update UI
         UpdateComboText();
 
-        // Schedule combo reset if this was the final hit
+        // Schedule combo reset ONLY on final hit
         if (isFinalHit)
         {
             Invoke(nameof(ResetCombo), comboResetDelay);
             comboResetInProgress = true;
+            Debug.Log($"[PlayerAttack] ? Final hit landed! Combo will reset in {comboResetDelay}s");
         }
     }
 
@@ -482,7 +505,7 @@ public class PlayerAttack : MonoBehaviour
         }
         
         UpdateComboText();
-        Debug.Log("Combo reset");
+        Debug.Log("[PlayerAttack] ?? Combo reset - ready for new combo chain");
     }
 
     private void PerformRangedAttack()
