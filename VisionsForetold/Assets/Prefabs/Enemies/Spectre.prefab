@@ -1398,7 +1398,7 @@ MonoBehaviour:
   moveSpeed: 3
   animationSmoothTime: 0.1
   useAnimations: 1
-  attackSound: {fileID: 0}
+  attackSound: {fileID: 8300000, guid: a75257e5651ccbb479507eca1651ccb2, type: 3}
   hurtSound: {fileID: 0}
   deathSound: {fileID: 0}
   enterCombatOnDetection: 1

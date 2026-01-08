@@ -15,6 +15,7 @@ TagManager:
   - Ground
   - Enviroment
   - UI
+  - Boss
   layers:
   - Default
   - TransparentFX

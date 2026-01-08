@@ -89,6 +89,17 @@ public class Chaosmancer : MonoBehaviour
             projectileSpawnPoint = transform;
         }
 
+        // Register boss for boss music system
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.RegisterBoss(transform);
+            Debug.Log("[Chaosmancer] Registered as boss - boss music will play when player approaches!");
+        }
+        else
+        {
+            Debug.LogWarning("[Chaosmancer] AudioManager not found! Boss music will not play.");
+        }
+
         PlaySound(roarSound);
     }
 
@@ -103,7 +114,18 @@ public class Chaosmancer : MonoBehaviour
 
     private void Update()
     {
-        if (isDead || player == null || health.isDead) return;
+        if (isDead || player == null || health == null || health.isDead)
+        {
+            // Don't update if boss is dead
+            return;
+        }
+
+        // FREQUENT DEBUG LOGS (for testing) - Remove later!
+        if (Time.frameCount % 60 == 0) // Every second
+        {
+            Debug.Log(
+                $"<color=cyan>[BOSS STATUS]</color> HP: {health.CurrentHealth}/{health.MaxHealth} | Phase: {(inPhase2 ? "2" : "1")} | Enraged: {isEnraged} | Pos: {transform.position}");
+        }
 
         if (!isTransformed)
         {
@@ -364,16 +386,46 @@ public class Chaosmancer : MonoBehaviour
 
     private void OnDeath()
     {
+        if (isDead) return; // Prevent multiple death calls
+        
         isDead = true;
         
+        Debug.Log("[Chaosmancer] Boss defeated!");
+        
+        // Unregister boss and end boss music IMMEDIATELY
+        if (AudioManager.Instance != null)
+        {
+            AudioManager.Instance.EndBossFight();
+            AudioManager.Instance.UnregisterBoss();
+            Debug.Log("[Chaosmancer] Boss music ended and unregistered!");
+        }
+
+        // Stop all coroutines safely
         StopAllCoroutines();
 
+        // Clean up tornado form
         if (tornadoFormDistance != null)
         {
             Destroy(tornadoFormDistance);
+            tornadoFormDistance = null;
         }
+        
+        // Disable this component to prevent further updates
+        this.enabled = false;
+        
+        // Optional: Destroy the entire GameObject after a delay
+        // Uncomment the line below if you want the boss to disappear:
+        // Destroy(gameObject, 2f);
+    }
 
-        Debug.Log($"Chaosmancer defeated!");
+    private void OnDestroy()
+    {
+        // Cleanup boss music registration if destroyed without death callback
+        if (!isDead && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.UnregisterBoss();
+            Debug.Log("[Chaosmancer] Unregistered on destroy");
+        }
     }
 
     private void PlaySound(AudioClip clip)

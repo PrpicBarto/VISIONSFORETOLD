@@ -400,7 +400,7 @@ MonoBehaviour:
   moveSpeed: 3
   animationSmoothTime: 0.1
   useAnimations: 1
-  attackSound: {fileID: 0}
+  attackSound: {fileID: 8300000, guid: 9f513ec64cf0e1447b970ca13a4e2cc7, type: 3}
   hurtSound: {fileID: 0}
   deathSound: {fileID: 0}
   enterCombatOnDetection: 1

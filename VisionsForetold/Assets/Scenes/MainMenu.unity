@@ -3841,10 +3841,16 @@ MonoBehaviour:
   pointClickMusic: {fileID: 8300000, guid: ac269e3e96dc90243858ce66b26e46a8, type: 3}
   combatPassiveMusic: {fileID: 8300000, guid: 1ed180cff3872874898e3d06f6d2d5ac, type: 3}
   combatAggressiveMusic: {fileID: 8300000, guid: a1de6f2837c2ae74a860bd00d276b4af, type: 3}
+  bossMusicTrack: {fileID: 8300000, guid: 89b0d831084957d458719caf48acc98e, type: 3}
+  bossProximityDistance: 20
+  bossFullVolumeDistance: 10
+  bossMusicFadeDuration: 3
+  bossDefeatMusicDelay: 2
   musicSource1: {fileID: 0}
   musicSource2: {fileID: 0}
   combatPassiveSource: {fileID: 0}
   combatAggressiveSource: {fileID: 0}
+  bossMusicSource: {fileID: 0}
   sfxSource: {fileID: 0}
   masterVolume: 1
   musicVolume: 0.7

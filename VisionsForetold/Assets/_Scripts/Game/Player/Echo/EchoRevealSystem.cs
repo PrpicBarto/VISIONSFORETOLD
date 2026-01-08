@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace VisionsForetold.Game.Player.Echo
 {
@@ -348,11 +349,33 @@ namespace VisionsForetold.Game.Player.Echo
             // Store original materials
             MaterialData data = new MaterialData();
             data.originalMaterials = renderer.sharedMaterials;
+            
+            // Check for null or empty materials array
+            if (data.originalMaterials == null || data.originalMaterials.Length == 0)
+            {
+                if (showDebugLogs)
+                {
+                    Debug.LogWarning($"[EchoReveal] Renderer on {renderer.gameObject.name} has no materials, skipping.");
+                }
+                return;
+            }
+            
             data.revealMaterials = new Material[data.originalMaterials.Length];
             
             // Create reveal material instances
             for (int i = 0; i < data.originalMaterials.Length; i++)
             {
+                // Skip null materials
+                if (data.originalMaterials[i] == null)
+                {
+                    if (showDebugLogs)
+                    {
+                        Debug.LogWarning($"[EchoReveal] Material slot {i} on {renderer.gameObject.name} is null, skipping.");
+                    }
+                    data.revealMaterials[i] = null;
+                    continue;
+                }
+                
                 data.revealMaterials[i] = new Material(revealMaterial);
                 
                 // Copy main texture
@@ -378,7 +401,17 @@ namespace VisionsForetold.Game.Player.Echo
             }
             
             materialCache[renderer] = data;
-            renderer.materials = data.revealMaterials;
+            
+            // Only apply materials if we have valid reveal materials
+            if (data.revealMaterials != null && data.revealMaterials.Length > 0)
+            {
+                // Filter out null materials before applying
+                Material[] validMaterials = data.revealMaterials.Where(m => m != null).ToArray();
+                if (validMaterials.Length > 0)
+                {
+                    renderer.materials = data.revealMaterials; // Use original array to preserve material slots
+                }
+            }
         }
         
         private void UpdateRevealMaterials()

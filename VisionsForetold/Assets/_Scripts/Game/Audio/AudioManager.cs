@@ -44,6 +44,22 @@ public class AudioManager : MonoBehaviour
     
     [Tooltip("Aggressive combat music (during combat) - plays simultaneously with passive")]
     [SerializeField] private AudioClip combatAggressiveMusic;
+    
+    [Header("Boss Music")]
+    [Tooltip("Boss music track - plays when near/fighting boss")]
+    [SerializeField] private AudioClip bossMusicTrack;
+    
+    [Tooltip("Distance from boss to start fading in boss music")]
+    [SerializeField] private float bossProximityDistance = 20f;
+    
+    [Tooltip("Distance from boss for full boss music volume")]
+    [SerializeField] private float bossFullVolumeDistance = 10f;
+    
+    [Tooltip("Boss music fade in duration")]
+    [SerializeField] private float bossMusicFadeDuration = 3f;
+    
+    [Tooltip("Return to combat music after boss defeated (delay)")]
+    [SerializeField] private float bossDefeatMusicDelay = 2f;
 
     #endregion
 
@@ -61,6 +77,9 @@ public class AudioManager : MonoBehaviour
     
     [Tooltip("Combat aggressive layer source (always playing in combat scenes)")]
     [SerializeField] private AudioSource combatAggressiveSource;
+    
+    [Tooltip("Boss music source (separate layer for boss encounters)")]
+    [SerializeField] private AudioSource bossMusicSource;
     
     [Tooltip("Sound effects source")]
     [SerializeField] private AudioSource sfxSource;
@@ -109,12 +128,19 @@ public class AudioManager : MonoBehaviour
     private bool isTransitioning = false;
     private bool isInCombat = false;
     private bool isInCombatScene = false;
+    private bool isInBossFight = false;
+    private bool isBossNearby = false;
+    
     private Coroutine fadeCoroutine;
     private Coroutine combatExitCoroutine;
     private Coroutine combatLayerFadeCoroutine;
+    private Coroutine bossMusicFadeCoroutine;
     
     private AudioClip currentlyPlaying;
     private string currentScene = "";
+    
+    private Transform bossTransform;
+    private Transform playerTransform;
 
     #endregion
 
@@ -151,6 +177,10 @@ public class AudioManager : MonoBehaviour
     }
 
     public bool IsInCombat => isInCombat;
+
+    public bool IsInBossFight => isInBossFight;
+    
+    public bool IsBossNearby => isBossNearby;
 
     #endregion
 
@@ -236,6 +266,16 @@ public class AudioManager : MonoBehaviour
             ConfigureMusicSource(combatAggressiveSource);
         }
 
+        // Create boss music source
+        if (bossMusicSource == null)
+        {
+            GameObject bossObj = new GameObject("BossMusicSource");
+            bossObj.transform.SetParent(transform);
+            bossMusicSource = bossObj.AddComponent<AudioSource>();
+            ConfigureMusicSource(bossMusicSource);
+            bossMusicSource.volume = 0f; // Start silent
+        }
+
         // Create SFX source if it doesn't exist
         if (sfxSource == null)
         {
@@ -272,6 +312,53 @@ public class AudioManager : MonoBehaviour
         }
 
         DetectAndPlaySceneMusic();
+        
+        // Auto-register any bosses in the new scene
+        AutoRegisterBosses();
+    }
+    
+    /// <summary>
+    /// Automatically find and register any bosses in the current scene
+    /// Looks for GameObjects tagged with "Boss" or components named with "Boss" in them
+    /// </summary>
+    private void AutoRegisterBosses()
+    {
+        // Try to find bosses by tag first
+        GameObject[] bossesByTag = GameObject.FindGameObjectsWithTag("Boss");
+        
+        if (bossesByTag != null && bossesByTag.Length > 0)
+        {
+            foreach (GameObject boss in bossesByTag)
+            {
+                RegisterBoss(boss.transform);
+                if (showDebugLogs)
+                {
+                    Debug.Log($"[AudioManager] Auto-registered boss by tag: {boss.name}");
+                }
+            }
+            return;
+        }
+        
+        // Fallback: Search for specific boss script types
+        // This finds Chaosmancer specifically
+        Chaosmancer chaosmancer = FindFirstObjectByType<Chaosmancer>();
+        if (chaosmancer != null)
+        {
+            RegisterBoss(chaosmancer.transform);
+            if (showDebugLogs)
+            {
+                Debug.Log($"[AudioManager] Auto-registered Chaosmancer boss: {chaosmancer.name}");
+            }
+            return;
+        }
+        
+        // Add more boss types here as needed
+        // Example: BossEnemy bossEnemy = FindFirstObjectByType<BossEnemy>();
+        
+        if (showDebugLogs)
+        {
+            Debug.Log("[AudioManager] No bosses found in scene for auto-registration");
+        }
     }
 
     private void DetectAndPlaySceneMusic()
@@ -604,8 +691,7 @@ public class AudioManager : MonoBehaviour
 
     /// <summary>
     /// Crossfade between combat music layers
-    /// </summary>
-    /// <param name="toAggressive">True = fade to aggressive, False = fade to passive</param>
+    /// /// <param name="toAggressive">True = fade to aggressive, False = fade to passive</param>
     private IEnumerator CrossfadeCombatLayers(bool toAggressive)
     {
         float elapsed = 0f;
@@ -732,132 +818,329 @@ public class AudioManager : MonoBehaviour
 
     #endregion
 
-    #region Volume Control
+    #region Boss Music System
 
-    private void UpdateVolumes()
+    /// <summary>
+    /// Register a boss for proximity-based music
+    /// Call this when a boss spawns or is discovered
+    /// </summary>
+    public void RegisterBoss(Transform boss)
     {
-        if (currentMusicSource != null && currentMusicSource.isPlaying)
+        if (boss == null)
         {
-            currentMusicSource.volume = musicVolume * masterVolume;
+            Debug.LogWarning("[AudioManager] Attempted to register null boss!");
+            return;
         }
-
-        // Update combat layer volumes based on current state
-        if (isInCombatScene && useLayeredCombatMusic)
+        
+        // Prevent double registration
+        if (bossTransform == boss)
         {
-            if (isInCombat)
+            if (showDebugLogs)
             {
-                combatPassiveSource.volume = 0f;
-                combatAggressiveSource.volume = musicVolume * masterVolume;
+                Debug.Log($"[AudioManager] Boss {boss.name} already registered, skipping.");
+            }
+            return;
+        }
+        
+        bossTransform = boss;
+        
+        // Try to find player if not already set
+        if (playerTransform == null)
+        {
+            GameObject player = GameObject.FindGameObjectWithTag("Player");
+            if (player != null)
+            {
+                playerTransform = player.transform;
+                if (showDebugLogs)
+                {
+                    Debug.Log($"[AudioManager] Found player: {player.name}");
+                }
             }
             else
             {
-                combatPassiveSource.volume = musicVolume * masterVolume;
-                combatAggressiveSource.volume = 0f;
+                Debug.LogWarning("[AudioManager] Could not find player with 'Player' tag! Boss music proximity detection won't work.");
             }
         }
-
-        if (sfxSource != null)
-        {
-            sfxSource.volume = sfxVolume * masterVolume;
-        }
-    }
-
-    /// <summary>
-    /// Set master volume (affects all audio)
-    /// </summary>
-    public void SetMasterVolume(float volume)
-    {
-        MasterVolume = volume;
-    }
-
-    /// <summary>
-    /// Set music volume
-    /// </summary>
-    public void SetMusicVolume(float volume)
-    {
-        MusicVolume = volume;
-    }
-
-    /// <summary>
-    /// Set SFX volume
-    /// </summary>
-    public void SetSFXVolume(float volume)
-    {
-        SfxVolume = volume;
-    }
-
-    #endregion
-
-    #region Playback Control
-
-    /// <summary>
-    /// Stop all music
-    /// </summary>
-    public void StopMusic()
-    {
-        if (fadeCoroutine != null)
-        {
-            StopCoroutine(fadeCoroutine);
-            fadeCoroutine = null;
-        }
-
-        musicSource1.Stop();
-        musicSource2.Stop();
-        
-        StopLayeredCombatMusic();
-        
-        currentlyPlaying = null;
         
         if (showDebugLogs)
         {
-            Debug.Log("[AudioManager] Music stopped");
+            Debug.Log($"[AudioManager] Boss registered: {boss.name}");
+        }
+        
+        // Only start proximity checking if we have both boss and player
+        if (playerTransform != null)
+        {
+            StartCoroutine(CheckBossProximity());
+        }
+        else
+        {
+            Debug.LogWarning("[AudioManager] Boss registered but player not found. Proximity detection disabled.");
         }
     }
 
     /// <summary>
-    /// Pause current music
+    /// Unregister boss (when defeated or despawned)
     /// </summary>
-    public void PauseMusic()
+    public void UnregisterBoss()
     {
-        if (currentMusicSource != null && currentMusicSource.isPlaying)
+        bossTransform = null;
+        isBossNearby = false;
+        
+        if (isInBossFight)
         {
-            currentMusicSource.Pause();
+            ExitBossFight();
         }
-
-        if (isInCombatScene)
+        
+        if (showDebugLogs)
         {
-            combatPassiveSource.Pause();
-            combatAggressiveSource.Pause();
+            Debug.Log("[AudioManager] Boss unregistered");
         }
     }
 
     /// <summary>
-    /// Resume paused music
+    /// Manually start boss fight music
+    /// Call when boss fight begins
     /// </summary>
-    public void ResumeMusic()
+    public void StartBossFight()
     {
-        if (currentMusicSource != null && currentMusicSource.clip != null)
+        if (isInBossFight) return;
+        
+        isInBossFight = true;
+        isBossNearby = true;
+        
+        if (bossMusicTrack == null)
         {
-            currentMusicSource.UnPause();
+            Debug.LogWarning("[AudioManager] Boss music track not assigned!");
+            return;
         }
-
-        if (isInCombatScene)
+        
+        // Start boss music
+        if (bossMusicFadeCoroutine != null)
         {
-            combatPassiveSource.UnPause();
-            combatAggressiveSource.UnPause();
+            StopCoroutine(bossMusicFadeCoroutine);
+        }
+        
+        bossMusicFadeCoroutine = StartCoroutine(FadeBossMusic(true, bossMusicFadeDuration));
+        
+        if (showDebugLogs)
+        {
+            Debug.Log("[AudioManager] Boss fight started - fading in boss music");
         }
     }
 
     /// <summary>
-    /// Check if music is currently playing
+    /// Manually end boss fight music
+    /// Call when boss is defeated
     /// </summary>
-    public bool IsMusicPlaying()
+    public void EndBossFight()
     {
-        if (isInCombatScene)
+        if (!isInBossFight) return;
+        
+        StartCoroutine(EndBossFightDelayed());
+    }
+
+    private IEnumerator EndBossFightDelayed()
+    {
+        yield return new WaitForSeconds(bossDefeatMusicDelay);
+        
+        ExitBossFight();
+    }
+
+    private void ExitBossFight()
+    {
+        isInBossFight = false;
+        isBossNearby = false;
+        
+        if (bossMusicFadeCoroutine != null)
         {
-            return combatPassiveSource.isPlaying || combatAggressiveSource.isPlaying;
+            StopCoroutine(bossMusicFadeCoroutine);
         }
-        return currentMusicSource != null && currentMusicSource.isPlaying;
+        
+        bossMusicFadeCoroutine = StartCoroutine(FadeBossMusic(false, bossMusicFadeDuration));
+        
+        if (showDebugLogs)
+        {
+            Debug.Log("[AudioManager] Boss fight ended - fading out boss music");
+        }
+    }
+
+    /// <summary>
+    /// Check proximity to boss and fade music accordingly
+    /// </summary>
+    private IEnumerator CheckBossProximity()
+    {
+        while (bossTransform != null && playerTransform != null)
+        {
+            float distance = Vector3.Distance(playerTransform.position, bossTransform.position);
+            
+            // Check if player is in proximity range
+            if (distance <= bossProximityDistance && !isInBossFight)
+            {
+                // Player approaching boss
+                if (!isBossNearby)
+                {
+                    isBossNearby = true;
+                    StartBossFight();
+                }
+                
+                // Adjust volume based on distance (closer = louder)
+                if (distance > bossFullVolumeDistance)
+                {
+                    float volumePercent = 1f - ((distance - bossFullVolumeDistance) / (bossProximityDistance - bossFullVolumeDistance));
+                    volumePercent = Mathf.Clamp01(volumePercent);
+                    
+                    if (bossMusicSource.isPlaying && !isInBossFight)
+                    {
+                        bossMusicSource.volume = volumePercent * musicVolume * masterVolume;
+                    }
+                }
+            }
+            else if (distance > bossProximityDistance && isBossNearby && !isInBossFight)
+            {
+                // Player moved away
+                isBossNearby = false;
+                ExitBossFight();
+            }
+            
+            yield return new WaitForSeconds(0.5f); // Check every 0.5 seconds
+        }
+        
+        // Boss or player is gone
+        if (isBossNearby || isInBossFight)
+        {
+            ExitBossFight();
+        }
+    }
+
+    /// <summary>
+    /// Fade boss music in or out
+    /// </summary>
+    private IEnumerator FadeBossMusic(bool fadeIn, float duration)
+    {
+        if (fadeIn)
+        {
+            // Setup boss music
+            if (!bossMusicSource.isPlaying)
+            {
+                bossMusicSource.clip = bossMusicTrack;
+                bossMusicSource.Play();
+                bossMusicSource.volume = 0f;
+            }
+            
+            // Fade down combat music layers
+            float startPassiveVolume = combatPassiveSource.volume;
+            float startAggressiveVolume = combatAggressiveSource.volume;
+            
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                float smoothT = Mathf.SmoothStep(0f, 1f, t);
+                
+                // Fade in boss music
+                bossMusicSource.volume = Mathf.Lerp(0f, musicVolume * masterVolume, smoothT);
+                
+                // Fade out combat layers
+                if (isInCombatScene && useLayeredCombatMusic)
+                {
+                    combatPassiveSource.volume = Mathf.Lerp(startPassiveVolume, 0f, smoothT);
+                    combatAggressiveSource.volume = Mathf.Lerp(startAggressiveVolume, 0f, smoothT);
+                }
+                else if (currentMusicSource.isPlaying)
+                {
+                    currentMusicSource.volume = Mathf.Lerp(musicVolume * masterVolume, 0f, smoothT);
+                }
+                
+                yield return null;
+            }
+            
+            // Finalize
+            bossMusicSource.volume = musicVolume * masterVolume;
+            if (isInCombatScene && useLayeredCombatMusic)
+            {
+                combatPassiveSource.volume = 0f;
+                combatAggressiveSource.volume = 0f;
+            }
+            else if (currentMusicSource.isPlaying)
+            {
+                currentMusicSource.volume = 0f;
+            }
+        }
+        else
+        {
+            // Fade out boss music
+            float startBossVolume = bossMusicSource.volume;
+            
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.deltaTime;
+                float t = elapsed / duration;
+                float smoothT = Mathf.SmoothStep(0f, 1f, t);
+                
+                // Fade out boss music
+                bossMusicSource.volume = Mathf.Lerp(startBossVolume, 0f, smoothT);
+                
+                // Fade back in combat layers
+                if (isInCombatScene && useLayeredCombatMusic)
+                {
+                    if (isInCombat)
+                    {
+                        combatAggressiveSource.volume = Mathf.Lerp(0f, musicVolume * masterVolume, smoothT);
+                    }
+                    else
+                    {
+                        combatPassiveSource.volume = Mathf.Lerp(0f, musicVolume * masterVolume, smoothT);
+                    }
+                }
+                else if (currentMusicSource.clip != null)
+                {
+                    currentMusicSource.volume = Mathf.Lerp(0f, musicVolume * masterVolume, smoothT);
+                }
+                
+                yield return null;
+            }
+            
+            // Finalize
+            bossMusicSource.Stop();
+            bossMusicSource.volume = 0f;
+            
+            if (isInCombatScene && useLayeredCombatMusic)
+            {
+                if (isInCombat)
+                {
+                    combatAggressiveSource.volume = musicVolume * masterVolume;
+                    combatPassiveSource.volume = 0f;
+                }
+                else
+                {
+                    combatPassiveSource.volume = musicVolume * masterVolume;
+                    combatAggressiveSource.volume = 0f;
+                }
+            }
+            else if (currentMusicSource.clip != null && !currentMusicSource.isPlaying)
+            {
+                currentMusicSource.Play();
+                currentMusicSource.volume = musicVolume * masterVolume;
+            }
+        }
+        
+        bossMusicFadeCoroutine = null;
+    }
+
+    /// <summary>
+    /// Set player transform for boss proximity detection
+    /// Call this if player isn't tagged or RegisterBoss can't find player
+    /// </summary>
+    public void SetPlayerTransform(Transform player)
+    {
+        playerTransform = player;
+        
+        if (showDebugLogs)
+        {
+            Debug.Log($"[AudioManager] Player transform set: {player.name}");
+        }
     }
 
     #endregion
@@ -889,4 +1172,70 @@ public class AudioManager : MonoBehaviour
     }
 
     #endregion
+
+    private void UpdateVolumes()
+    {
+        if (currentMusicSource != null && currentMusicSource.isPlaying)
+        {
+            currentMusicSource.volume = musicVolume * masterVolume;
+        }
+
+        // Update combat layer volumes based on current state
+        if (isInCombatScene && useLayeredCombatMusic && !isInBossFight)
+        {
+            if (isInCombat)
+            {
+                combatPassiveSource.volume = 0f;
+                combatAggressiveSource.volume = musicVolume * masterVolume;
+            }
+            else
+            {
+                combatPassiveSource.volume = musicVolume * masterVolume;
+                combatAggressiveSource.volume = 0f;
+            }
+        }
+        else if (isInBossFight)
+        {
+            // Boss music takes priority
+            combatPassiveSource.volume = 0f;
+            combatAggressiveSource.volume = 0f;
+            bossMusicSource.volume = musicVolume * masterVolume;
+        }
+
+        if (sfxSource != null)
+        {
+            sfxSource.volume = sfxVolume * masterVolume;
+        }
+    }
+
+    /// <summary>
+    /// Stop all music
+    /// </summary>
+    public void StopMusic()
+    {
+        if (fadeCoroutine != null)
+        {
+            StopCoroutine(fadeCoroutine);
+            fadeCoroutine = null;
+        }
+
+        musicSource1.Stop();
+        musicSource2.Stop();
+        
+        StopLayeredCombatMusic();
+        
+        if (bossMusicSource != null)
+        {
+            bossMusicSource.Stop();
+        }
+        
+        currentlyPlaying = null;
+        isInBossFight = false;
+        isBossNearby = false;
+        
+        if (showDebugLogs)
+        {
+            Debug.Log("[AudioManager] Music stopped");
+        }
+    }
 }
