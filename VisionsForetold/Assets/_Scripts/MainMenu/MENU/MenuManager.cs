@@ -115,48 +115,72 @@ public class MenuManager : MonoBehaviour
 
     #region Initialization
 
-    private void InitializeMenu()
+    
+private void InitializeMenu()
+{
+    // Get or create EventSystem
+    eventSystem = EventSystem.current;
+    if (eventSystem == null)
     {
-        // Get or create EventSystem
-        eventSystem = EventSystem.current;
-        if (eventSystem == null)
+        GameObject eventSystemObj = new GameObject("EventSystem");
+        eventSystem = eventSystemObj.AddComponent<EventSystem>();
+
+        // Try to add the new Input System UI module if available, otherwise fall back to StandaloneInputModule
+        System.Type inputSystemModuleType = null;
+        var assemblies = System.AppDomain.CurrentDomain.GetAssemblies();
+        foreach (var asm in assemblies)
         {
-            GameObject eventSystemObj = new GameObject("EventSystem");
-            eventSystem = eventSystemObj.AddComponent<EventSystem>();
-            eventSystemObj.AddComponent<StandaloneInputModule>();
-            
+            inputSystemModuleType = asm.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule");
+            if (inputSystemModuleType != null) break;
+        }
+
+        if (inputSystemModuleType != null)
+        {
+            // Add the Input System UI module (added via reflection to avoid compile-time dependency)
+            eventSystemObj.AddComponent(inputSystemModuleType);
             if (showDebugLogs)
-            {
-                Debug.Log("[MenuManager] Created EventSystem");
-            }
+                Debug.Log("[MenuManager] Added InputSystemUIInputModule to EventSystem");
         }
-
-        // Ensure cursor is visible and unlocked in menu
-        Cursor.visible = true;
-        Cursor.lockState = CursorLockMode.None;
-
-        // Create fade panel if it doesn't exist
-        if (useFadeTransition && fadePanel == null)
+        else
         {
-            CreateFadePanel();
+            eventSystemObj.AddComponent<StandaloneInputModule>();
+            if (showDebugLogs)
+                Debug.Log("[MenuManager] Added StandaloneInputModule to EventSystem");
         }
-
-        // Set fade panel to transparent initially
-        if (fadePanel != null)
-        {
-            fadePanel.alpha = 0f;
-            fadePanel.blocksRaycasts = false;
-        }
-
-        // Auto-find first selected buttons if not assigned
-        AutoFindFirstSelectedButtons();
 
         if (showDebugLogs)
         {
-            Debug.Log("[MenuManager] Menu initialized successfully");
-            Debug.Log("[MenuManager] Gamepad support: ENABLED");
+            Debug.Log("[MenuManager] Created EventSystem");
         }
     }
+
+    // Ensure cursor is visible and unlocked in menu
+    Cursor.visible = true;
+    Cursor.lockState = CursorLockMode.None;
+
+    // Create fade panel if it doesn't exist
+    if (useFadeTransition && fadePanel == null)
+    {
+        CreateFadePanel();
+    }
+
+    // Set fade panel to transparent initially
+    if (fadePanel != null)
+    {
+        fadePanel.alpha = 0f;
+        fadePanel.blocksRaycasts = false;
+    }
+
+    // Auto-find first selected buttons if not assigned
+    AutoFindFirstSelectedButtons();
+
+    if (showDebugLogs)
+    {
+        Debug.Log("[MenuManager] Menu initialized successfully");
+        Debug.Log("[MenuManager] Gamepad support: ENABLED");
+    }
+}
+
 
     private void AutoFindFirstSelectedButtons()
     {
