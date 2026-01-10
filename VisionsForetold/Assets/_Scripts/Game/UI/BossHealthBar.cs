@@ -1,22 +1,62 @@
-using System;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+/// <summary>
+/// Boss health bar that's part of the boss prefab
+/// Automatically finds and connects to boss's Health component
+/// </summary>
+[RequireComponent(typeof(Canvas))]
 public class BossHealthBar : MonoBehaviour
 {
-    [Header("References")]
-    [SerializeField] private Health bossHealth;
-    [SerializeField] private Image HealthBarFill;
+    [Header("UI References")]
+    [SerializeField] private Image healthBarFill;
     [SerializeField] private TMP_Text bossNameText;
-    [SerializeField] private TMP_Text bossHealthText;
-    [SerializeField] private GameObject healthBarPanel;
+    [SerializeField] private TMP_Text healthText;
     
     [Header("Settings")]
-    [SerializeField] private string bossName = "Chaosmancer";
-    [SerializeField] private bool showOnlyInCombat = false;
+    [SerializeField] private string bossName = "BOSS";
+    [SerializeField] private bool hideWhenFull = false;
+    [SerializeField] private bool showOnlyWhenDamaged = true;
+    [SerializeField] private float hideDelay = 3f;
+    
+    [Header("Colors")]
+    [SerializeField] private Color fullHealthColor = new Color(1f, 0f, 0f); // Red
+    [SerializeField] private Color lowHealthColor = new Color(0.5f, 0f, 0f); // Dark red
+    [SerializeField] private float lowHealthThreshold = 0.3f;
+    
+    [Header("Animation")]
+    [SerializeField] private bool smoothTransition = true;
+    [SerializeField] private float smoothSpeed = 5f;
+    
+    private Health bossHealth;
+    private Canvas canvas;
+    private Camera mainCamera;
+    private float targetFillAmount = 1f;
+    private float timeSinceLastDamage;
+    private bool isVisible = true;
 
-    private bool isVisible;
+    private void Awake()
+    {
+        canvas = GetComponent<Canvas>();
+        mainCamera = Camera.main;
+        
+        // Auto-find boss health component on parent
+        bossHealth = GetComponentInParent<Health>();
+        
+        if (bossHealth == null)
+        {
+            Debug.LogError($"BossHealthBar on {transform.parent.name}: No Health component found on parent!");
+            return;
+        }
+        
+        // Setup canvas
+        if (canvas != null)
+        {
+            canvas.renderMode = RenderMode.WorldSpace;
+            canvas.worldCamera = mainCamera;
+        }
+    }
 
     private void Start()
     {
@@ -26,74 +66,100 @@ public class BossHealthBar : MonoBehaviour
             bossHealth.OnDeath.AddListener(OnBossDeath);
             UpdateHealthBar(bossHealth.CurrentHealth, bossHealth.MaxHealth);
         }
-
+        
         if (bossNameText != null)
         {
             bossNameText.text = bossName;
         }
-
-        if (showOnlyInCombat)
+        
+        if (hideWhenFull && bossHealth != null && bossHealth.IsAtFullHealth)
         {
             SetVisibility(false);
         }
-        else
+    }
+
+    private void Update()
+    {
+        // Always face camera
+        FaceCamera();
+        
+        // Smooth fill animation
+        if (smoothTransition && healthBarFill != null)
         {
-            SetVisibility(true);
+            healthBarFill.fillAmount = Mathf.Lerp(
+                healthBarFill.fillAmount,
+                targetFillAmount,
+                Time.deltaTime * smoothSpeed
+            );
+        }
+        
+        // Auto-hide after delay
+        if (showOnlyWhenDamaged && isVisible && bossHealth != null && !bossHealth.IsDead)
+        {
+            timeSinceLastDamage += Time.deltaTime;
+            
+            if (timeSinceLastDamage > hideDelay && !bossHealth.IsAtFullHealth)
+            {
+                SetVisibility(false);
+            }
         }
     }
 
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
-        // Safety check for division by zero
-        if (maxHealth <= 0)
-        {
-            Debug.LogWarning("[BossHealthBar] MaxHealth is 0 or negative!");
-            return;
-        }
-
-        // Check if bossHealth reference is still valid
-        if (bossHealth == null)
-        {
-            Debug.LogWarning("[BossHealthBar] Boss Health reference lost!");
-            return;
-        }
-
-        if (!isVisible && showOnlyInCombat)
+        if (!isVisible && (showOnlyWhenDamaged || hideWhenFull))
         {
             SetVisibility(true);
         }
-
-        float healthPercent = (float)currentHealth / (float)maxHealth;
-
-        // Validate the calculated percentage
-        if (float.IsNaN(healthPercent) || float.IsInfinity(healthPercent))
+        
+        timeSinceLastDamage = 0f;
+        
+        float healthPercent = (float)currentHealth / maxHealth;
+        targetFillAmount = healthPercent;
+        
+        if (!smoothTransition && healthBarFill != null)
         {
-            Debug.LogError($"[BossHealthBar] Invalid health percent: {healthPercent}");
-            return;
+            healthBarFill.fillAmount = healthPercent;
         }
-
-        if (HealthBarFill != null)
+        
+        // Update color based on health
+        if (healthBarFill != null)
         {
-            HealthBarFill.fillAmount = healthPercent;
+            if (healthPercent <= lowHealthThreshold)
+            {
+                healthBarFill.color = Color.Lerp(lowHealthColor, fullHealthColor, 
+                    healthPercent / lowHealthThreshold);
+            }
+            else
+            {
+                healthBarFill.color = fullHealthColor;
+            }
         }
-
-        if (bossHealthText != null)
+        
+        // Update text
+        if (healthText != null)
         {
-            bossHealthText.text = $"{currentHealth}/{maxHealth}";
+            healthText.text = $"{currentHealth}/{maxHealth}";
         }
+        
+        // Hide if at full health
+        if (hideWhenFull && healthPercent >= 1f)
+        {
+            SetVisibility(false);
+        }
+    }
+
+    private void FaceCamera()
+    {
+        if (mainCamera == null || canvas == null) return;
+        
+        // Make health bar always face camera
+        transform.rotation = Quaternion.LookRotation(transform.position - mainCamera.transform.position);
     }
 
     private void OnBossDeath()
     {
-        // Check if still valid before starting coroutine
-        if (this != null && gameObject != null && gameObject.activeInHierarchy)
-        {
-            StartCoroutine(FadeOutHealthBar());
-        }
-        else
-        {
-            SetVisibility(false);
-        }
+        StartCoroutine(FadeOutHealthBar());
     }
 
     private System.Collections.IEnumerator FadeOutHealthBar()
@@ -105,20 +171,27 @@ public class BossHealthBar : MonoBehaviour
     private void SetVisibility(bool visible)
     {
         isVisible = visible;
-        if (healthBarPanel != null)
+        
+        if (canvas != null)
         {
-            healthBarPanel.SetActive(visible);
+            canvas.enabled = visible;
         }
     }
 
     public void Show()
     {
         SetVisibility(true);
+        timeSinceLastDamage = 0f;
+    }
+
+    public void Hide()
+    {
+        SetVisibility(false);
     }
 
     private void OnDestroy()
     {
-        // Clean up event listeners
+        // Unsubscribe from events
         if (bossHealth != null)
         {
             bossHealth.OnHealthChanged.RemoveListener(UpdateHealthBar);
