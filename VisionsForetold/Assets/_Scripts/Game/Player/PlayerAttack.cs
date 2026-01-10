@@ -132,7 +132,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private GameObject swordPrefab; // Melee weapon model
     [SerializeField] private GameObject bowPrefab; // Ranged weapon model
     [SerializeField] private GameObject staffPrefab; // Spell weapon model
-    [SerializeField] private bool hideWeaponWhenNotInUse = false; // Hide weapons not currently equipped
+    [SerializeField] private bool enableWeaponVisuals = false; // Enable/disable weapon visual system
 
     private GameObject currentWeaponInstance; // Currently equipped weapon instance
     private GameObject swordInstance;
@@ -823,6 +823,13 @@ public class PlayerAttack : MonoBehaviour
     /// </summary>
     private void InitializeWeapons()
     {
+        // Weapon visual system disabled - skip initialization
+        if (!enableWeaponVisuals)
+        {
+            Debug.Log("[PlayerAttack] Weapon visual system is disabled");
+            return;
+        }
+
         if (weaponHand == null)
         {
             Debug.LogWarning("Weapon hand transform not assigned! Weapon visuals will not work. Assign the right hand bone in the inspector.");
@@ -867,19 +874,20 @@ public class PlayerAttack : MonoBehaviour
     /// </summary>
     private void UpdateWeaponVisuals()
     {
-        if (weaponHand == null) return;
+        // Skip if weapon visuals are disabled
+        if (!enableWeaponVisuals || weaponHand == null) return;
 
         // Determine which weapon should be active
         switch (currentAttackMode)
         {
             case AttackMode.Melee:
-                SetActiveWeapon(swordInstance);
+                setActiveWeapon(swordInstance);
                 break;
             case AttackMode.Ranged:
-                SetActiveWeapon(bowInstance);
+                setActiveWeapon(bowInstance);
                 break;
             case AttackMode.SpellWielding:
-                SetActiveWeapon(staffInstance);
+                setActiveWeapon(staffInstance);
                 break;
         }
 
@@ -889,30 +897,45 @@ public class PlayerAttack : MonoBehaviour
     /// <summary>
     /// Set which weapon instance is active and hide others
     /// </summary>
-    private void SetActiveWeapon(GameObject activeWeapon)
+    private void setActiveWeapon(GameObject activeWeapon)
     {
+        // Skip if weapon visuals are disabled
+        if (!enableWeaponVisuals) return;
+
         currentWeaponInstance = activeWeapon;
 
-        // Show/hide weapons based on hideWeaponWhenNotInUse setting
+        // Always show only the active weapon and hide all others
         if (swordInstance != null)
         {
-            swordInstance.SetActive(!hideWeaponWhenNotInUse || swordInstance == activeWeapon);
+            bool shouldShow = (swordInstance == activeWeapon);
+            swordInstance.SetActive(shouldShow);
+            
+            if (shouldShow)
+            {
+                Debug.Log("[PlayerAttack] ?? Sword is now active");
+            }
         }
 
         if (bowInstance != null)
         {
-            bowInstance.SetActive(!hideWeaponWhenNotInUse || bowInstance == activeWeapon);
+            bool shouldShow = (bowInstance == activeWeapon);
+            bowInstance.SetActive(shouldShow);
+            
+            if (shouldShow)
+            {
+                Debug.Log("[PlayerAttack] ?? Bow is now active");
+            }
         }
 
         if (staffInstance != null)
         {
-            staffInstance.SetActive(!hideWeaponWhenNotInUse || staffInstance == activeWeapon);
-        }
-
-        // Ensure active weapon is visible
-        if (activeWeapon != null && !activeWeapon.activeSelf)
-        {
-            activeWeapon.SetActive(true);
+            bool shouldShow = (staffInstance == activeWeapon);
+            staffInstance.SetActive(shouldShow);
+            
+            if (shouldShow)
+            {
+                Debug.Log("[PlayerAttack] ?? Staff is now active");
+            }
         }
     }
 
