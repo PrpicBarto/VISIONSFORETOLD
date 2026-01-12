@@ -33,14 +33,23 @@ public class MenuManager : MonoBehaviour
     [SerializeField] private GameObject creditsFirstButton;
 
     [Header("Scene Settings")]
-    [Tooltip("Name of the scene to load when Play is pressed")]
+    [Tooltip("Name of the video scene to play before game")]
+    [SerializeField] private string videoSceneName = "IntroVideoScene";
+    
+    [Tooltip("Name of the game scene (loaded after video)")]
     [SerializeField] private string gameSceneName = "PointNClickScene";
+    
+    [Tooltip("Skip video and go directly to game")]
+    [SerializeField] private bool skipIntroVideo = false;
     
     [Tooltip("Use scene index instead of name")]
     [SerializeField] private bool useSceneIndex = false;
     
-    [Tooltip("Scene build index (if useSceneIndex is true)")]
-    [SerializeField] private int gameSceneIndex = 1;
+    [Tooltip("Video scene build index (if useSceneIndex is true)")]
+    [SerializeField] private int videoSceneIndex = 1;
+    
+    [Tooltip("Game scene build index (if useSceneIndex is true)")]
+    [SerializeField] private int gameSceneIndex = 2;
 
     [Header("Transition Settings")]
     [Tooltip("Enable fade transition when loading scene")]
@@ -414,37 +423,66 @@ private void InitializeMenu()
 
     private void LoadGameScene()
     {
+        // Determine which scene to load (video or game directly)
+        string sceneToLoad = skipIntroVideo ? gameSceneName : videoSceneName;
+        int sceneIndexToLoad = skipIntroVideo ? gameSceneIndex : videoSceneIndex;
+        
+        if (showDebugLogs)
+        {
+            if (skipIntroVideo)
+            {
+                Debug.Log($"[MenuManager] Skipping intro video, loading game directly: {sceneToLoad}");
+            }
+            else
+            {
+                Debug.Log($"[MenuManager] Loading intro video scene: {sceneToLoad}");
+            }
+        }
+        
         if (useFadeTransition && fadePanel != null)
         {
-            StartCoroutine(LoadSceneWithFade());
+            StartCoroutine(LoadSceneWithFade(sceneToLoad, sceneIndexToLoad));
         }
         else
         {
-            LoadSceneImmediate();
+            LoadSceneImmediate(sceneToLoad, sceneIndexToLoad);
         }
     }
 
     private void LoadSceneImmediate()
     {
+        LoadSceneImmediate(skipIntroVideo ? gameSceneName : videoSceneName, 
+                          skipIntroVideo ? gameSceneIndex : videoSceneIndex);
+    }
+    
+    private void LoadSceneImmediate(string sceneName, int sceneIndex)
+    {
         try
         {
             if (useSceneIndex)
             {
-                SceneManager.LoadScene(gameSceneIndex);
+                SceneManager.LoadScene(sceneIndex);
             }
             else
             {
-                SceneManager.LoadScene(gameSceneName);
+                SceneManager.LoadScene(sceneName);
             }
         }
         catch (System.Exception e)
         {
             Debug.LogError($"[MenuManager] Failed to load scene: {e.Message}");
-            Debug.LogError($"[MenuManager] Make sure scene '{gameSceneName}' is added to Build Settings!");
+            Debug.LogError($"[MenuManager] Make sure scene '{sceneName}' is added to Build Settings!");
         }
     }
 
     private IEnumerator LoadSceneWithFade()
+    {
+        string sceneToLoad = skipIntroVideo ? gameSceneName : videoSceneName;
+        int sceneIndexToLoad = skipIntroVideo ? gameSceneIndex : videoSceneIndex;
+        return LoadSceneWithFade(sceneToLoad, sceneIndexToLoad);
+    }
+
+    private IEnumerator LoadSceneWithFade(string sceneToLoad, int sceneIndexToLoad)
     {
         isTransitioning = true;
 
@@ -458,25 +496,25 @@ private void InitializeMenu()
         // Try to start loading
         if (useSceneIndex)
         {
-            if (gameSceneIndex < SceneManager.sceneCountInBuildSettings)
+            if (sceneIndexToLoad < SceneManager.sceneCountInBuildSettings)
             {
-                asyncLoad = SceneManager.LoadSceneAsync(gameSceneIndex);
+                asyncLoad = SceneManager.LoadSceneAsync(sceneIndexToLoad);
             }
             else
             {
-                Debug.LogError($"[MenuManager] Scene index {gameSceneIndex} is out of range!");
+                Debug.LogError($"[MenuManager] Scene index {sceneIndexToLoad} is out of range!");
                 loadFailed = true;
             }
         }
         else
         {
-            if (IsSceneInBuild(gameSceneName))
+            if (IsSceneInBuild(sceneToLoad))
             {
-                asyncLoad = SceneManager.LoadSceneAsync(gameSceneName);
+                asyncLoad = SceneManager.LoadSceneAsync(sceneToLoad);
             }
             else
             {
-                Debug.LogError($"[MenuManager] Scene '{gameSceneName}' not found in Build Settings!");
+                Debug.LogError($"[MenuManager] Scene '{sceneToLoad}' not found in Build Settings!");
                 loadFailed = true;
             }
         }

@@ -9,6 +9,19 @@ public class Chaosmancer : MonoBehaviour
 
     [SerializeField] private int maxHealth = 500;
 
+    [Header("Proximity Activation")]
+    [Tooltip("Enable/disable proximity-based activation")]
+    [SerializeField] private bool useProximityActivation = true;
+    
+    [Tooltip("Distance at which boss becomes active")]
+    [SerializeField] private float activationDistance = 30f;
+    
+    [Tooltip("Distance at which boss becomes inactive (should be > activationDistance)")]
+    [SerializeField] private float deactivationDistance = 40f;
+    
+    [Tooltip("Check interval for proximity (in seconds, 0 = every frame)")]
+    [SerializeField] private float proximityCheckInterval = 0.5f;
+
     [Header("Movement")] [SerializeField] private Transform player;
     [SerializeField] private float moveSpeed = 3f;
     [SerializeField] private float minDistance = 8f;
@@ -60,12 +73,20 @@ public class Chaosmancer : MonoBehaviour
 
     private int attackCounter;
     private bool inPhase2;
+    
+    // Proximity activation state
+    private bool isBossActive;
+    private float lastProximityCheckTime;
+    private Animator animator;
+    private Collider[] bossColliders;
 
     private void Awake()
     {
         if (health == null) health = GetComponent<Health>();
         rb = GetComponent<Rigidbody>();
         audioSource = GetComponent<AudioSource>();
+        animator = GetComponent<Animator>();
+        bossColliders = GetComponentsInChildren<Collider>();
 
         if (audioSource == null)
         {
@@ -73,15 +94,30 @@ public class Chaosmancer : MonoBehaviour
         }
 
         FindPlayer();
+        
+        // Start inactive if using proximity activation
+        if (useProximityActivation)
+        {
+            SetBossActive(false);
+            Debug.Log("[Chaosmancer] Starting inactive - will activate when player approaches");
+        }
+        else
+        {
+            isBossActive = true;
+        }
     }
 
     private void Start()
     {
-        if (health == null)
+        if (health != null)  // FIXED: Changed from "== null" to "!= null"
         {
             health.SetMaxHealth(maxHealth, false);
             health.OnHealthChanged.AddListener(OnHealthChanged);
             health.OnDeath.AddListener(OnDeath);
+        }
+        else
+        {
+            Debug.LogError("[Chaosmancer] Health component is NULL! Boss will not take damage or die properly.");
         }
 
         if (projectileSpawnPoint == null)
@@ -101,6 +137,12 @@ public class Chaosmancer : MonoBehaviour
         }
 
         PlaySound(roarSound);
+
+        // Removed duplicate CheckProximity coroutine - proximity is handled in Update()
+        // if (useProximityActivation)
+        // {
+        //     StartCoroutine(CheckProximity());
+        // }
     }
 
     private void FindPlayer()
@@ -114,9 +156,26 @@ public class Chaosmancer : MonoBehaviour
 
     private void Update()
     {
-        if (isDead || player == null || health == null || health.isDead)
+        if (isDead || player == null)
         {
-            // Don't update if boss is dead
+            // Don't update if boss is dead or player not found
+            return;
+        }
+
+        // Handle proximity-based activation
+        if (useProximityActivation)
+        {
+            CheckProximityActivation();
+            
+            // Don't update boss logic if inactive
+            if (!isBossActive)
+            {
+                return;
+            }
+        }
+
+        if (health == null || health.isDead)
+        {
             return;
         }
 
@@ -138,17 +197,24 @@ public class Chaosmancer : MonoBehaviour
     {
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
+        Vector3 moveDirection = Vector3.zero;
+
         if (distanceToPlayer < minDistance)
         {
-            Vector3 retreatDir = (transform.position - player.position).normalized;
-            Vector3 newPosition = transform.position + retreatDir * (moveSpeed * Time.deltaTime);
-            transform.position = newPosition;
+            // Retreat from player
+            moveDirection = (transform.position - player.position).normalized;
         }
         else if (distanceToPlayer > maxDistance)
         {
-            Vector3 approachDir = (player.position - transform.position).normalized;
-            Vector3 newPosition = transform.position + approachDir * (moveSpeed * Time.deltaTime);
-            transform.position = newPosition;
+            // Approach player
+            moveDirection = (player.position - transform.position).normalized;
+        }
+
+        // Move using Rigidbody (physics-based movement)
+        if (moveDirection != Vector3.zero && rb != null)
+        {
+            Vector3 targetPosition = transform.position + moveDirection * (moveSpeed * Time.deltaTime);
+            rb.MovePosition(targetPosition);
         }
 
         LookAtPlayer();
@@ -168,7 +234,8 @@ public class Chaosmancer : MonoBehaviour
     {
         float currentTime = Time.time;
 
-        bool canTornado = currentTime - lastTransformTime > tornadoCooldown;
+        // FIXED: Use correct last attack times for each attack
+        bool canTornado = currentTime - lastTornadoTime > tornadoCooldown;
         bool canTransform = currentTime - lastTransformTime > transformCooldown;
         bool canSlam = currentTime - lastSlamTime > slamCooldown;
 
@@ -180,7 +247,7 @@ public class Chaosmancer : MonoBehaviour
             attackCounter = 0;
         }
         
-        else if (canSlam && distanceToPlayer <= slamDamage)
+        else if (canSlam && distanceToPlayer <= slamRange)  // FIXED: Use slamRange, not slamDamage
         {
             GroundSlamAttack();
             attackCounter = 0;
@@ -195,13 +262,14 @@ public class Chaosmancer : MonoBehaviour
 
     private void TornadoProjectileAttack()
     {
-        if (tornadoProjectilePrefab == null)
+        // FIXED: Changed from "tornadoProjectilePrefab == null" to "!= null"
+        if (tornadoProjectilePrefab != null)
         {
             lastTornadoTime = Time.time;
             LookAtPlayer();
 
             Vector3 direction = (player.position - projectileSpawnPoint.position).normalized;
-            GameObject tornado = Instantiate(tornadoFormPrefab, projectileSpawnPoint.position,
+            GameObject tornado = Instantiate(tornadoProjectilePrefab, projectileSpawnPoint.position,
                 Quaternion.LookRotation(direction));
 
             TornadoProjectile tornadoScript = tornado.GetComponent<TornadoProjectile>();
@@ -225,6 +293,11 @@ public class Chaosmancer : MonoBehaviour
             }
             PlaySound(tornadoSound);
             Debug.Log("Chaosmancer fired tornado!");
+        }
+        else
+        {
+            Debug.LogWarning("[Chaosmancer] Tornado projectile prefab is not assigned!");
+            lastTornadoTime = Time.time; // Set cooldown anyway to prevent spam
         }
     }
 
@@ -413,9 +486,30 @@ public class Chaosmancer : MonoBehaviour
         // Disable this component to prevent further updates
         this.enabled = false;
         
-        // Optional: Destroy the entire GameObject after a delay
-        // Uncomment the line below if you want the boss to disappear:
-        // Destroy(gameObject, 2f);
+        // Show "To Be Continued" screen after a short delay
+        StartCoroutine(ShowToBeContinuedAfterDelay(2f));
+    }
+    
+    /// <summary>
+    /// Show the "To Be Continued" screen after boss defeat
+    /// </summary>
+    private IEnumerator ShowToBeContinuedAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        
+        // Show "To Be Continued" screen
+        if (ToBeContinuedManager.Instance != null)
+        {
+            ToBeContinuedManager.Instance.ShowToBeContinued();
+            Debug.Log("[Chaosmancer] Showing 'To Be Continued' screen!");
+        }
+        else
+        {
+            Debug.LogError("[Chaosmancer] ToBeContinuedManager not found! Add it to the scene.");
+        }
+        
+        // Optional: Destroy the boss GameObject after showing the screen
+        // Destroy(gameObject, 1f);
     }
 
     private void OnDestroy()
@@ -436,8 +530,145 @@ public class Chaosmancer : MonoBehaviour
         }
     }
 
+    #region Proximity Activation
+
+    /// <summary>
+    /// Check if player is within activation/deactivation distance
+    /// </summary>
+    private void CheckProximityActivation()
+    {
+        // Only check at intervals to save performance
+        if (Time.time - lastProximityCheckTime < proximityCheckInterval)
+        {
+            return;
+        }
+
+        lastProximityCheckTime = Time.time;
+
+        if (player == null)
+        {
+            FindPlayer();
+            if (player == null) return;
+        }
+
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        // Use hysteresis to prevent rapid toggling
+        if (!isBossActive && distanceToPlayer <= activationDistance)
+        {
+            // Player entered activation range - activate boss
+            SetBossActive(true);
+            Debug.Log($"[Chaosmancer] Player entered range ({distanceToPlayer:F1}m) - ACTIVATING boss!");
+        }
+        else if (isBossActive && distanceToPlayer >= deactivationDistance)
+        {
+            // Player left deactivation range - deactivate boss
+            SetBossActive(false);
+            Debug.Log($"[Chaosmancer] Player left range ({distanceToPlayer:F1}m) - DEACTIVATING boss!");
+        }
+    }
+
+    /// <summary>
+    /// Set boss active or inactive state
+    /// </summary>
+    private void SetBossActive(bool active)
+    {
+        isBossActive = active;
+
+        // DON'T disable this script! It needs to run to check proximity and re-enable itself
+        // this.enabled = active;  // ? REMOVED: This prevents Update() from running
+
+        // Enable/disable animator
+        if (animator != null)
+        {
+            animator.enabled = active;
+        }
+
+        // Enable/disable rigidbody
+        if (rb != null)
+        {
+            rb.isKinematic = !active;
+            
+            if (!active)
+            {
+                // Stop all physics movement when deactivating
+                rb.linearVelocity = Vector3.zero;
+                rb.angularVelocity = Vector3.zero;
+            }
+        }
+
+        // Enable/disable colliders (optional - keep colliders active for player collision)
+        // Uncomment if you want to disable collision when inactive
+        /*
+        if (bossColliders != null)
+        {
+            foreach (var col in bossColliders)
+            {
+                if (col != null)
+                {
+                    col.enabled = active;
+                }
+            }
+        }
+        */
+
+        // Stop all coroutines when deactivating (but NOT the script itself!)
+        if (!active)
+        {
+            // Stop attack coroutines
+            StopAllCoroutines();
+            
+            // Clean up tornado form if active
+            if (tornadoFormDistance != null)
+            {
+                Destroy(tornadoFormDistance);
+                tornadoFormDistance = null;
+                isTransformed = false;
+            }
+        }
+
+        // Log state change
+        string state = active ? "ACTIVE" : "INACTIVE";
+        Debug.Log($"[Chaosmancer] Boss is now {state}");
+    }
+
+    /// <summary>
+    /// Force activate boss (for cutscenes, etc.)
+    /// </summary>
+    public void ForceActivate()
+    {
+        if (useProximityActivation)
+        {
+            SetBossActive(true);
+            Debug.Log("[Chaosmancer] Force activated!");
+        }
+    }
+
+    /// <summary>
+    /// Force deactivate boss
+    /// </summary>
+    public void ForceDeactivate()
+    {
+        if (useProximityActivation)
+        {
+            SetBossActive(false);
+            Debug.Log("[Chaosmancer] Force deactivated!");
+        }
+    }
+
+    /// <summary>
+    /// Check if boss is currently active
+    /// </summary>
+    public bool IsActive()
+    {
+        return isBossActive;
+    }
+
+    #endregion
+
     private void OnDrawGizmosSelected()
     {
+        // Draw attack ranges
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, slamRange);
         
@@ -449,5 +680,33 @@ public class Chaosmancer : MonoBehaviour
         
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, maxDistance);
+        
+        // Draw proximity activation ranges
+        if (useProximityActivation)
+        {
+            // Activation range (green)
+            Gizmos.color = new Color(0f, 1f, 0f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, activationDistance);
+            
+            // Deactivation range (orange)
+            Gizmos.color = new Color(1f, 0.5f, 0f, 0.3f);
+            Gizmos.DrawWireSphere(transform.position, deactivationDistance);
+            
+            // Draw line to player if in editor
+            if (Application.isPlaying && player != null)
+            {
+                float distance = Vector3.Distance(transform.position, player.position);
+                Gizmos.color = isBossActive ? Color.green : Color.red;
+                Gizmos.DrawLine(transform.position, player.position);
+                
+                // Draw label
+                #if UNITY_EDITOR
+                UnityEditor.Handles.Label(
+                    transform.position + Vector3.up * 3f,
+                    $"Boss: {(isBossActive ? "ACTIVE" : "INACTIVE")}\nDistance: {distance:F1}m"
+                );
+                #endif
+            }
+        }
     }
 }

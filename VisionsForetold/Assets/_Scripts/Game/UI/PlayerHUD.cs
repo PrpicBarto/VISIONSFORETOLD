@@ -34,7 +34,7 @@ public class PlayerHUD : MonoBehaviour
 
     private void Start()
     {
-        
+        // Auto-find player if not assigned
         if (playerHealth == null)
         {
             GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -42,52 +42,71 @@ public class PlayerHUD : MonoBehaviour
             {
                 playerHealth = player.GetComponent<Health>();
                 playerXP = player.GetComponent<PlayerXP>();
+                Debug.Log("[PlayerHUD] Auto-found player components");
+            }
+            else
+            {
+                Debug.LogError("[PlayerHUD] No GameObject with 'Player' tag found!");
             }
         }
         
+        // Subscribe to health events
         if (playerHealth != null)
         {
+            Debug.Log($"[PlayerHUD] Subscribing to Health events. Current HP: {playerHealth.CurrentHealth}/{playerHealth.MaxHealth}");
             playerHealth.OnHealthChanged.AddListener(UpdateHealthBar);
             UpdateHealthBar(playerHealth.CurrentHealth, playerHealth.MaxHealth);
         }
+        else
+        {
+            Debug.LogError("[PlayerHUD] playerHealth is NULL! Health bar will not update.");
+        }
         
+        // Subscribe to XP events
         if (playerXP != null)
         {
+            Debug.Log("[PlayerHUD] Subscribing to XP events");
             playerXP.OnXPChanged.AddListener(UpdateXPBar);
             playerXP.OnLevelUp.AddListener(UpdateLevel);
             UpdateXPBar(playerXP.CurrentXP, playerXP.XPToNextLevel);
             UpdateLevel(playerXP.Level);
         }
+        else
+        {
+            Debug.LogWarning("[PlayerHUD] playerXP is NULL! XP bar will not update.");
+        }
         
+        // Set XP bar color
         if (xpBarFill != null)
         {
             xpBarFill.color = xpBarColor;
         }
+        
+        // Verify UI elements
+        if (healthBarFill == null)
+            Debug.LogError("[PlayerHUD] healthBarFill is not assigned!");
+        if (healthText == null)
+            Debug.LogWarning("[PlayerHUD] healthText is not assigned!");
     }
 
     private void Update()
     {
-        // Check if player references are still valid
-        if (playerHealth == null || playerXP == null)
+        // Failsafe: Continuously verify health display is correct
+        if (playerHealth != null && healthBarFill != null)
         {
-            // Try to reconnect to player
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-            {
-                if (playerHealth == null)
-                    playerHealth = player.GetComponent<Health>();
-                if (playerXP == null)
-                    playerXP = player.GetComponent<PlayerXP>();
-            }
+            float actualHealthPercent = (float)playerHealth.CurrentHealth / playerHealth.MaxHealth;
             
-            // If still null, can't update UI
-            if (playerHealth == null || playerXP == null)
-                return;
+            // If there's a significant difference between displayed and actual health, force update
+            if (Mathf.Abs(targetHealthFill - actualHealthPercent) > 0.01f)
+            {
+                Debug.LogWarning($"[PlayerHUD] Health mismatch detected! Target: {targetHealthFill:F2}, Actual: {actualHealthPercent:F2} - Forcing update");
+                UpdateHealthBar(playerHealth.CurrentHealth, playerHealth.MaxHealth);
+            }
         }
-
+        
         if (smoothTransition)
         {
-            if (healthBarFill != null)
+            if (healthBarFill != null && !Mathf.Approximately(healthBarFill.fillAmount, targetHealthFill))
             {
                 healthBarFill.fillAmount = Mathf.Lerp(
                     healthBarFill.fillAmount, 
@@ -96,7 +115,7 @@ public class PlayerHUD : MonoBehaviour
                 );
             }
             
-            if (xpBarFill != null)
+            if (xpBarFill != null && !Mathf.Approximately(xpBarFill.fillAmount, targetXpFill))
             {
                 xpBarFill.fillAmount = Mathf.Lerp(
                     xpBarFill.fillAmount, 
@@ -109,11 +128,19 @@ public class PlayerHUD : MonoBehaviour
 
     private void UpdateHealthBar(int currentHealth, int maxHealth)
     {
+        Debug.Log($"[PlayerHUD] UpdateHealthBar called: {currentHealth}/{maxHealth}");
+        
         // Safety check
-        if (maxHealth <= 0) return;
+        if (maxHealth <= 0)
+        {
+            Debug.LogError("[PlayerHUD] maxHealth is 0 or negative!");
+            return;
+        }
 
         float healthPercent = (float)currentHealth / maxHealth;
         targetHealthFill = healthPercent;
+        
+        Debug.Log($"[PlayerHUD] Health percent: {healthPercent:F2}, Target fill: {targetHealthFill:F2}");
         
         if (!smoothTransition && healthBarFill != null)
         {
@@ -125,6 +152,10 @@ public class PlayerHUD : MonoBehaviour
         {
             healthBarFill.color = Color.Lerp(lowHealthColor, fullHealthColor, 
                 healthPercent / lowHealthThreshold);
+        }
+        else
+        {
+            Debug.LogError("[PlayerHUD] healthBarFill is NULL in UpdateHealthBar!");
         }
         
         // Update text

@@ -16,7 +16,8 @@ public class PlayerAttack : MonoBehaviour
     public enum SpellType
     {
         Fireball,
-        IceBlast
+        IceBlast,
+        Heal
     }
 
     [Header("Attack Settings")]
@@ -63,6 +64,8 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float fireballCastDelay = 0.4f;
     [Tooltip("Delay before ice blast projectile spawns (sync with animation)")]
     [SerializeField] private float iceBlastCastDelay = 0.3f;
+    [Tooltip("Delay before heal effect triggers (sync with animation)")]
+    [SerializeField] private float healCastDelay = 0.5f;
 
     [Header("Aiming Settings")]
     [SerializeField] private bool useAimTarget = true; // Whether to use aim target or player forward
@@ -86,9 +89,20 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private float spellCastRange = 15.0f;
     [SerializeField] private Transform spellCastPoint; // Where spells are cast from
 
+    [Header("Heal Spell Settings")]
+    [Tooltip("Amount of health restored per heal cast")]
+    [SerializeField] private int healAmount = 30;
+    [Tooltip("Visual effect prefab for heal spell (optional)")]
+    [SerializeField] private GameObject healEffectPrefab;
+    [Tooltip("Should heal effect follow the player?")]
+    [SerializeField] private bool healEffectFollowsPlayer = true;
+    [Tooltip("Duration of heal visual effect")]
+    [SerializeField] private float healEffectDuration = 2f;
+
     [Header("Spell Cooldowns")]
     [SerializeField] private float fireballCooldown = 2.0f;
     [SerializeField] private float iceBlastCooldown = 2.5f;
+    [SerializeField] private float healCooldown = 5.0f; // Longer cooldown for heal
 
     [Header("Mode Switch Settings")]
     [SerializeField] private float modeSwitchCooldown = 0.2f; // Reduced for scroll wheel responsiveness
@@ -100,6 +114,7 @@ public class PlayerAttack : MonoBehaviour
     [SerializeField] private AudioClip bowReleaseSound;
     [SerializeField] private AudioClip fireballCastSound;
     [SerializeField] private AudioClip iceBlastCastSound;
+    [SerializeField] private AudioClip healCastSound; // New: heal sound effect
     [SerializeField] private AudioClip modeSwitchSound;
     [SerializeField] private bool enterCombatOnAttack = true;
     [SerializeField] private float combatTimeoutAfterAttack = 5f;
@@ -111,6 +126,7 @@ public class PlayerAttack : MonoBehaviour
     private float lastAttackTime = -Mathf.Infinity;
     private float lastFireballTime = -Mathf.Infinity;
     private float lastIceBlastTime = -Mathf.Infinity;
+    private float lastHealTime = -Mathf.Infinity; // Track heal spell cooldown
 
     // Input System
     private PlayerInput playerInput;
@@ -571,6 +587,10 @@ public class PlayerAttack : MonoBehaviour
                 CastIceBlast();
                 lastIceBlastTime = Time.time;
                 break;
+            case SpellType.Heal:
+                CastHeal();
+                lastHealTime = Time.time;
+                break;
         }
 
         Debug.Log($"Player cast {currentSpell}!");
@@ -667,6 +687,7 @@ public class PlayerAttack : MonoBehaviour
         {
             SpellType.Fireball => Time.time >= lastFireballTime + fireballCooldown,
             SpellType.IceBlast => Time.time >= lastIceBlastTime + iceBlastCooldown,
+            SpellType.Heal => Time.time >= lastHealTime + healCooldown,
             _ => true
         };
     }
@@ -786,6 +807,96 @@ public class PlayerAttack : MonoBehaviour
         yield return new WaitForSeconds(delay);
 
         DealAreaDamage(targetPosition, 4f, attackDamage);
+    }
+
+    private void CastHeal()
+    {
+        // Play heal cast sound
+        if (healCastSound != null && AudioManager.Instance != null)
+        {
+            AudioManager.Instance.PlaySFX(healCastSound);
+        }
+
+        // Trigger heal spell animation (check if player can cast)
+        if (playerMovement != null && !playerMovement.IsDodging)
+        {
+            // Reuse SpellIce animation or create a dedicated heal animation trigger
+            // For now, using ice animation as placeholder
+            playerMovement.TriggerSpellIce(); // TODO: Add TriggerSpellHeal() to PlayerMovement
+        }
+
+        // Play heal VFX
+        if (enableVFX && VFXManager.Instance != null)
+        {
+            VFXManager.Instance.PlaySpellCast(spellCastPoint.position, 1); // 1 = heal/support effect
+        }
+
+        // Delay heal effect to sync with animation
+        StartCoroutine(PerformHealDelayed(healCastDelay));
+        
+        Debug.Log($"Casting Heal - will restore {healAmount} HP after {healCastDelay}s delay!");
+    }
+
+    /// <summary>
+    /// Performs the heal after a delay to sync with animation
+    /// </summary>
+    private System.Collections.IEnumerator PerformHealDelayed(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+
+        // Get player health component
+        Health playerHealth = GetComponent<Health>();
+        
+        if (playerHealth != null)
+        {
+            // Check if player needs healing
+            if (playerHealth.IsAtFullHealth)
+            {
+                Debug.Log("[PlayerAttack] Already at full health! Heal spell wasted.");
+            }
+            else
+            {
+                // Restore health
+                int healthBefore = playerHealth.CurrentHealth;
+                playerHealth.Heal(healAmount);
+                int actualHealAmount = playerHealth.CurrentHealth - healthBefore;
+                
+                Debug.Log($"<color=green>[PlayerAttack] Healed for {actualHealAmount} HP! Health: {playerHealth.CurrentHealth}/{playerHealth.MaxHealth}</color>");
+
+                // Spawn heal visual effect
+                if (healEffectPrefab != null)
+                {
+                    GameObject healEffect = Instantiate(
+                        healEffectPrefab, 
+                        transform.position + Vector3.up, 
+                        Quaternion.identity
+                    );
+
+                    // Make effect follow player if enabled
+                    if (healEffectFollowsPlayer)
+                    {
+                        healEffect.transform.SetParent(transform);
+                    }
+
+                    // Destroy effect after duration
+                    Destroy(healEffect, healEffectDuration);
+                }
+
+                // Show heal number popup (if DamageNumberManager supports heal)
+                if (DamageNumberManager.Instance != null)
+                {
+                    // Show heal amount as positive number (green)
+                    DamageNumberManager.Instance.ShowDamage(
+                        transform.position + Vector3.up * 2f, 
+                        actualHealAmount
+                    );
+                }
+            }
+        }
+        else
+        {
+            Debug.LogError("[PlayerAttack] Health component not found! Cannot heal.");
+        }
     }
 
     private void DealAreaDamage(Vector3 center, float radius, int damage)
@@ -1094,6 +1205,7 @@ public class PlayerAttack : MonoBehaviour
         {
             SpellType.Fireball => Mathf.Max(0, fireballCooldown - (Time.time - lastFireballTime)),
             SpellType.IceBlast => Mathf.Max(0, iceBlastCooldown - (Time.time - lastIceBlastTime)),
+            SpellType.Heal => Mathf.Max(0, healCooldown - (Time.time - lastHealTime)),
             _ => 0
         };
     }

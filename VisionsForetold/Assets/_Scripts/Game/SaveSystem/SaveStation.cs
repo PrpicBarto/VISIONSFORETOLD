@@ -161,6 +161,9 @@ namespace VisionsForetold.Game.SaveSystem
                 saveStationMenu.SetSaveStation(this); // Pass reference
                 HidePrompt();
 
+                // Show cursor for menu navigation
+                ShowCursor();
+
                 // Disable player movement and input
                 if (player != null)
                 {
@@ -212,6 +215,9 @@ namespace VisionsForetold.Game.SaveSystem
         /// </summary>
         public void OnMenuClosed()
         {
+            // Hide cursor when returning to game
+            HideCursor();
+
             // Re-enable player components
             if (player != null)
             {
@@ -299,6 +305,30 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 visualRenderer.material.color = originalColor;
             }
+        }
+
+        #endregion
+
+        #region Cursor Management
+
+        /// <summary>
+        /// Shows the cursor for UI navigation
+        /// </summary>
+        private void ShowCursor()
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            Debug.Log("[SaveStation] Cursor shown and unlocked");
+        }
+
+        /// <summary>
+        /// Hides the cursor for gameplay
+        /// </summary>
+        private void HideCursor()
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+            Debug.Log("[SaveStation] Cursor hidden and locked");
         }
 
         #endregion

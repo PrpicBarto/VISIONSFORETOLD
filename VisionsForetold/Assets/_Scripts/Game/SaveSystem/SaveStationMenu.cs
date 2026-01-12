@@ -223,6 +223,15 @@ namespace VisionsForetold.Game.SaveSystem
             // Handle ESC/Cancel to close menu (if menu is open)
             if (menuPanel != null && menuPanel.activeSelf)
             {
+                // CRITICAL: Ensure cursor stays visible while menu is open
+                // This is a failsafe in case something else tries to hide it
+                if (!Cursor.visible || Cursor.lockState != CursorLockMode.None)
+                {
+                    Cursor.visible = true;
+                    Cursor.lockState = CursorLockMode.None;
+                    Debug.LogWarning("[SaveStationMenu] Cursor was hidden while menu open - re-enabling!");
+                }
+
                 // Check for ESC key (Keyboard)
                 if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 {
@@ -283,6 +292,12 @@ namespace VisionsForetold.Game.SaveSystem
                 menuPanel.SetActive(true);
                 Time.timeScale = 0f; // Pause game
 
+                // CRITICAL: Show cursor for menu navigation
+                ShowCursor();
+                
+                // Double-check cursor state
+                Debug.Log($"[SaveStationMenu] Menu opened - Cursor.visible: {Cursor.visible}, Cursor.lockState: {Cursor.lockState}");
+
                 // Hide HUD
                 if (hudCanvas != null)
                 {
@@ -337,6 +352,9 @@ namespace VisionsForetold.Game.SaveSystem
                 menuPanel.SetActive(false);
                 Time.timeScale = 1f; // Unpause game
             }
+
+            // Hide cursor when closing menu (will be hidden again by SaveStation)
+            HideCursor();
 
             // Close all sub-panels
             if (savePanel != null) savePanel.SetActive(false);
@@ -405,6 +423,9 @@ namespace VisionsForetold.Game.SaveSystem
                 confirmationDialog.SetActive(false);
             }
 
+            // Ensure cursor stays visible when returning to main menu
+            ShowCursor();
+
             // Return to main menu
             SetGamepadSelection(saveButton);
         }
@@ -415,6 +436,9 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 confirmationDialog.SetActive(false);
             }
+
+            // Ensure cursor stays visible when returning to save panel
+            ShowCursor();
 
             // Return to save panel
             SetGamepadSelection(confirmSaveButton);
@@ -429,6 +453,9 @@ namespace VisionsForetold.Game.SaveSystem
             if (savePanel != null)
             {
                 savePanel.SetActive(true);
+
+                // Ensure cursor is visible for save panel interaction
+                ShowCursor();
 
                 // Populate save name with default or current
                 if (saveNameInput != null)
@@ -445,6 +472,8 @@ namespace VisionsForetold.Game.SaveSystem
 
                 // Set first selected for gamepad
                 SetGamepadSelection(saveNameInput);
+                
+                Debug.Log("[SaveStationMenu] Save panel opened, cursor shown");
             }
         }
 
@@ -455,8 +484,13 @@ namespace VisionsForetold.Game.SaveSystem
                 savePanel.SetActive(false);
             }
 
+            // Ensure cursor remains visible when returning to main menu
+            ShowCursor();
+
             // Return to main menu
             SetGamepadSelection(saveButton);
+            
+            Debug.Log("[SaveStationMenu] Save panel closed, returned to main menu");
         }
 
         private void PerformSave()
@@ -555,6 +589,9 @@ namespace VisionsForetold.Game.SaveSystem
             {
                 skillsPanel.SetActive(true);
 
+                // Ensure cursor is visible for skills navigation
+                ShowCursor();
+
                 // Refresh skill tree UI (try both list and grid versions)
                 if (skillTreeUI != null)
                 {
@@ -567,6 +604,8 @@ namespace VisionsForetold.Game.SaveSystem
 
                 // Set first selected for gamepad
                 SetGamepadSelection(closeSkillsButton);
+                
+                Debug.Log("[SaveStationMenu] Skills panel opened, cursor shown");
             }
         }
 
@@ -577,8 +616,13 @@ namespace VisionsForetold.Game.SaveSystem
                 skillsPanel.SetActive(false);
             }
 
+            // Ensure cursor remains visible when returning to main menu
+            ShowCursor();
+
             // Return to main menu
             SetGamepadSelection(saveButton);
+            
+            Debug.Log("[SaveStationMenu] Skills panel closed, returned to main menu");
         }
 
         #endregion
@@ -590,6 +634,9 @@ namespace VisionsForetold.Game.SaveSystem
             if (confirmationDialog != null)
             {
                 confirmationDialog.SetActive(true);
+
+                // Ensure cursor is visible for confirmation dialog
+                ShowCursor();
 
                 if (confirmationText != null)
                 {
@@ -604,12 +651,15 @@ namespace VisionsForetold.Game.SaveSystem
                     {
                         onConfirm?.Invoke();
                         confirmationDialog.SetActive(false);
+                        ShowCursor(); // Keep cursor visible
                         SetGamepadSelection(saveButton);
                     });
                 }
 
                 // Set first selected for gamepad
                 SetGamepadSelection(confirmYesButton);
+                
+                Debug.Log("[SaveStationMenu] Confirmation dialog shown, cursor visible");
             }
         }
 
@@ -637,6 +687,30 @@ namespace VisionsForetold.Game.SaveSystem
                 return;
 
             eventSystem.SetSelectedGameObject(inputField.gameObject);
+        }
+
+        #endregion
+
+        #region Cursor Management
+
+        /// <summary>
+        /// Shows the cursor for UI navigation
+        /// </summary>
+        private void ShowCursor()
+        {
+            Cursor.visible = true;
+            Cursor.lockState = CursorLockMode.None;
+            Debug.Log("[SaveStationMenu] Cursor shown and unlocked");
+        }
+
+        /// <summary>
+        /// Hides the cursor for gameplay
+        /// </summary>
+        private void HideCursor()
+        {
+            Cursor.visible = false;
+            Cursor.lockState = CursorLockMode.Locked;
+            Debug.Log("[SaveStationMenu] Cursor hidden and locked");
         }
 
         #endregion

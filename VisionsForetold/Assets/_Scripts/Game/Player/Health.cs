@@ -28,11 +28,11 @@ public class Health : MonoBehaviour
     [SerializeField] private int healthRegenThreshold = 50; // Only regen below this percentage
 
     [Header("Events")]
-    public UnityEvent<int, int> OnHealthChanged; // (currentHealth, maxHealth)
-    public UnityEvent<int> OnDamageTaken; // (damageAmount)
-    public UnityEvent<int> OnHealthRestored; // (healAmount)
-    public UnityEvent OnDeath;
-    public UnityEvent OnFullHealth;
+    public UnityEvent<int, int> OnHealthChanged = new UnityEvent<int, int>(); // (currentHealth, maxHealth)
+    public UnityEvent<int> OnDamageTaken = new UnityEvent<int>(); // (damageAmount)
+    public UnityEvent<int> OnHealthRestored = new UnityEvent<int>(); // (healAmount)
+    public UnityEvent OnDeath = new UnityEvent();
+    public UnityEvent OnFullHealth = new UnityEvent();
 
     // Private variables for optimization
     private float lastDamageTime = -Mathf.Infinity;
@@ -104,6 +104,10 @@ public class Health : MonoBehaviour
         // Reset health regen timer when taking damage
         healthRegenTimer = 0f;
 
+        // CRITICAL DEBUG: Log damage details
+        Debug.Log($"[Health] {gameObject.name} took {damage} damage. Health: {previousHealth} ? {currentHealth}/{maxHealth}");
+        Debug.Log($"[Health] OnHealthChanged listeners: {(OnHealthChanged != null ? OnHealthChanged.GetPersistentEventCount() : 0)}");
+
         // Trigger hurt animation for player
         if (isPlayer)
         {
@@ -135,9 +139,10 @@ public class Health : MonoBehaviour
 
         // Invoke events
         OnDamageTaken?.Invoke(damage);
+        
+        // CRITICAL: Invoke health changed event
+        Debug.Log($"[Health] Invoking OnHealthChanged event: {currentHealth}/{maxHealth}");
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
-
-        Debug.Log($"{gameObject.name} took {damage} damage. Health: {currentHealth}/{maxHealth}");
 
         // Check for death
         if (currentHealth <= 0 && !isDead)
@@ -295,17 +300,26 @@ public class Health : MonoBehaviour
     {
         GameObject ragdollInstance = Instantiate(ragdollPrefab, transform.position, transform.rotation);
 
-        // Copy velocity if this object has a rigidbody
-        Rigidbody originalRb = GetComponent<Rigidbody>();
-        if (originalRb != null)
+        // FIXED: Don't copy velocity - let ragdoll drop naturally with gravity
+        // The original code was copying velocity which caused ragdolls to fly away
+        
+        // Optional: Apply a small random impulse for natural variation
+        Rigidbody[] ragdollRigidbodies = ragdollInstance.GetComponentsInChildren<Rigidbody>();
+        foreach (var rb in ragdollRigidbodies)
         {
-            Rigidbody[] ragdollRigidbodies = ragdollInstance.GetComponentsInChildren<Rigidbody>();
-            foreach (var rb in ragdollRigidbodies)
-            {
-                rb.linearVelocity = originalRb.linearVelocity;
-                rb.angularVelocity = originalRb.angularVelocity;
-            }
+            // Ensure rigidbody is not kinematic
+            rb.isKinematic = false;
+            
+            // Reset velocities to zero (natural drop)
+            rb.linearVelocity = Vector3.zero;
+            rb.angularVelocity = Vector3.zero;
+            
+            // Optional: Add small random rotation for natural variation
+            // Uncomment if you want slight movement on death
+            // rb.angularVelocity = Random.insideUnitSphere * 0.5f;
         }
+
+        Debug.Log($"[Health] Spawned ragdoll for {gameObject.name} - natural drop enabled");
 
         // Auto-destroy ragdoll after specified time
         if (ragdollLifetime > 0)
@@ -448,7 +462,7 @@ public class Health : MonoBehaviour
             if (playerMovement != null) playerMovement.enabled = true;
 
             var playerAttack = GetComponent<PlayerAttack>();
-            if (playerAttack != null) playerAttack.enabled = true;
+            if ( playerAttack != null) playerAttack.enabled = true;
         }
 
         OnHealthChanged?.Invoke(currentHealth, maxHealth);

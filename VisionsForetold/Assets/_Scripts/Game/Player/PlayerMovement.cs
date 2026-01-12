@@ -901,9 +901,11 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Don't update movement animations while dashing or dodging
-        bool isMoving = movementInput.magnitude > 0.1f && !isDodging && !isDashing;
+        // FIXED: Check if player is actually moving (not just input), accounts for attack locks
+        bool hasMovementInput = movementInput.magnitude > 0.1f;
+        bool isActuallyMoving = hasMovementInput && !isDodging && !isDashing && !isAttacking;
         
-        if (isMoving)
+        if (isActuallyMoving)
         {
             // Calculate speed with sprint multiplier
             float targetSpeed = movementInput.magnitude;
@@ -943,7 +945,7 @@ public class PlayerMovement : MonoBehaviour
         // Update health-based animations
         UpdateHealthAnimations();
 
-        wasMovingLastFrame = isMoving;
+        wasMovingLastFrame = isActuallyMoving;
     }
 
     private void UpdateHealthAnimations()
